@@ -1,0 +1,56 @@
+# Copyright 2015, Yahoo Inc.
+# Licensed under the terms of the Apache License 2.0. Please see LICENSE file in the project root for terms.
+
+kafka.brokers:
+    - "localhost"
+
+zookeeper.servers:
+    - "localhost"
+
+kafka.port: 9092
+zookeeper.port: 2181
+kafka.topic: "ad-events"
+kafka.partitions: 1
+
+process.hosts: 1
+process.cores: 1
+
+#STORM Specific
+storm.workers: 1
+storm.ackers: 2
+
+#Spark Specific
+spark.batchtime: 2000
+spark.master: "local[2]"
+
+#Data Source
+datasourcesocket.port: 9093
+#datasourcesocket.host: "localhost"
+
+#Data Sink
+datasinksocket.port: 8189
+datasinksocket.host: "localhost"
+
+
+
+flink.output: "file:///Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/flink/flink.txt"
+spark.output: "file:///Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/spark/"
+storm.output: "file:///Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/storm/"
+kafka.output: "/Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/kafka/kafka.txt"
+
+#Use Case Specific
+#sliding window, processing time, seconds
+slidingwindow.length: 8000
+slidingwindow.slide: 4000
+
+# Benchmarking time, in milliseconds
+benchmarking.count : 120000
+warmup.count : 120000
+datagenerator.sleep : 1000
+
+#Kafka-Streams specific
+kafkastream.output.topic: "ks-result"
+
+#Trident specific
+trident.batchsize: 30
+
