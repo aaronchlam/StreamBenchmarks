@@ -30,10 +30,10 @@ datasourcesocket.port: 9093
 #Data Sink
 datasinksocket.port: 8189
 datasinksocket.host: "localhost"
+flush.rate: 100
+ 
 
-
-
-flink.output: "file:///Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/flink/flink.txt"
+flink.output: "/Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/flink/flink.csv"
 spark.output: "file:///Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/spark/"
 storm.output: "file:///Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/storm/"
 kafka.output: "/Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/kafka/kafka.txt"
@@ -41,12 +41,12 @@ kafka.output: "/Users/jeka01/Documents/workspaces/benchmarking/streaming-benchma
 #Use Case Specific
 #sliding window, processing time, seconds
 slidingwindow.length: 8000
-slidingwindow.slide: 4000
+slidingwindow.slide: 400
 
 # Benchmarking time, in milliseconds
-benchmarking.count : 120000
+benchmarking.count : 1200000
 warmup.count : 120000
-datagenerator.sleep : 1000
+datagenerator.sleep : 0
 
 #Kafka-Streams specific
 kafkastream.output.topic: "ks-result"

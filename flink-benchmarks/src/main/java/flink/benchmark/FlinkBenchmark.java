@@ -11,12 +11,17 @@ import data.source.model.AdsEvent;
 import data.source.socket.DataGenerator;
 import org.apache.commons.collections.bag.SynchronizedSortedBag;
 import org.apache.flink.api.common.functions.*;
+import org.apache.flink.api.java.io.CsvOutputFormat;
+import org.apache.flink.api.java.io.TextOutputFormat;
 import org.apache.flink.api.java.tuple.*;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
+import org.apache.flink.streaming.api.functions.sink.*;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.time.Time;
@@ -26,7 +31,7 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileReader;
+import java.io.*;
 import java.net.InetAddress;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -56,7 +61,7 @@ public class FlinkBenchmark {
         int hosts = new Integer(conf.get("process.hosts").toString());
         int cores = new Integer(conf.get("process.cores").toString());
 
-        String dataGeneratorHost = InetAddress.getLocalHost().getHostName();
+        String dataGeneratorHost = "localhost";
         Integer dataGeneratorPort = new Integer(conf.get("datasourcesocket.port").toString());
         int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
@@ -71,7 +76,7 @@ public class FlinkBenchmark {
 
         // Set the buffer timeout (default 100)
         // Lowering the timeout will lead to lower latencies, but will eventually reduce throughput.
-        env.setBufferTimeout(flinkBenchmarkParams.getLong("flink.buffer-timeout", 100));
+        env.setBufferTimeout(100);
 
         if (flinkBenchmarkParams.has("flink.checkpoint-interval")) {
             // enable checkpointing for fault tolerance
@@ -120,16 +125,16 @@ public class FlinkBenchmark {
         });
 
         String outputFile = conf.get("flink.output").toString();
+        Long flushRate = new Long (conf.get("flush.rate").toString());
 
-        resultingStream.print();
-      //  resultingStream.writeAsCsv(outputFile);
+        resultingStream.addSink(new WriteSinkFunctionByMillis<Tuple4<String, Long, Double, Double>>(outputFile, new WriteFormatAsCsv(), flushRate));
 
         Long benchmarkingCount = new Long(conf.get("benchmarking.count").toString());
         Long warmupCount = new Long(conf.get("warmup.count").toString());
         Long sleepTime = new Long(conf.get("datagenerator.sleep").toString());
 
         DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime);
-        Thread.sleep(1000L);
+       // Thread.sleep(1000L);
         env.execute();
     }
 
@@ -183,22 +188,34 @@ public class FlinkBenchmark {
         return val;
     }
 
-    class EventExtractor implements AssignerWithPeriodicWatermarks<Tuple10<Long, Long, String, String, String, String, String, String, String, String>> {
-
-        @Override
-        public Watermark getCurrentWatermark() {
-            return null;
-        }
-
-        @Override
-        public long extractTimestamp(Tuple10<Long, Long, String, String, String, String, String, String, String, String> longLongStringStringStringStringStringStringStringStringTuple10, long l) {
-            return 0;
-        }
-    }
-
 
 }
 
+class MySink implements SinkFunction<Tuple4<String, Long, Double, Double>> {
 
+    private String outputPath;
+    private transient BufferedWriter bw = null;
 
+    public MySink(String outputPath) {
+        this.outputPath = outputPath;
+        try {
+            File file = new File(outputPath);
+            if (!file.exists()) {
 
+                file.getParentFile().mkdirs();
+
+            }
+            FileWriter fw = new FileWriter(file);
+            bw = new BufferedWriter(fw);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    @Override
+    public void invoke(Tuple4<String, Long, Double, Double> tuple) throws Exception {
+        bw.write(tuple.f0 + "," + tuple.f1 + "," + tuple.f2 + "," + tuple.f3 + "\n");
+        bw.flush();
+    }
+}

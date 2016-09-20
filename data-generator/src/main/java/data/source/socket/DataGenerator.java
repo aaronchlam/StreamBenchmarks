@@ -39,8 +39,9 @@ public class DataGenerator extends Thread {
 
                 for (long i = 0; i < warmupCount; i++) {
                     try {
-                        Thread.sleep(sleepTime);
-                        JSONObject obj = dg.generateJson(false);
+                        if (sleepTime != 0)
+                            Thread.sleep(sleepTime);
+                        JSONObject obj = dg.generateJson(true);
                         out.println(obj.toString());
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -49,7 +50,8 @@ public class DataGenerator extends Thread {
 
                 for (long i = 0; i < benchmarkCount; i++) {
                     try {
-                        Thread.sleep(sleepTime);
+                        if (sleepTime != 0)
+                            Thread.sleep(sleepTime);
                         JSONObject obj = dg.generateJson(false);
                         out.println(obj.toString());
                     } catch (Exception e) {
