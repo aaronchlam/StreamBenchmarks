@@ -19,7 +19,18 @@
             <groupId>org.apache.storm</groupId>
             <artifactId>storm-core</artifactId>
             <!-- keep storm out of the jar-with-dependencies -->
-            <scope>compile</scope>
+            <scope>provided</scope>
+    <exclusions>
+        <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+        </exclusion>
+        <exclusion>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+        </exclusion>
+    </exclusions>
+
         </dependency>
          <dependency>
              <groupId>org.apache.storm</groupId>
@@ -68,11 +79,6 @@
              <groupId>com.yahoo.stream</groupId>
              <artifactId>data-generator</artifactId>
              <version>0.1.0</version>
-         </dependency>
-         <dependency>
-             <groupId>org.apache.storm</groupId>
-             <artifactId>storm-core</artifactId>
-             <version>${storm.version}</version>
          </dependency>
 
      </dependencies>

@@ -46,9 +46,9 @@ import java.util.concurrent.TimeUnit;
 public class TridentBenchmark {
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            throw new Exception("2 arguments is needed: Config file path and running mode (local or cluster)");
-        }
+//        if (args.length != 2) {
+  //          throw new Exception("2 arguments is needed: Config file path and running mode (local or cluster)");
+    //    }
         String confPath = args[0];
         String runningMode = args[1];
         YamlReader reader = new YamlReader(new FileReader(confPath));
@@ -58,19 +58,19 @@ public class TridentBenchmark {
         int workers = new Integer(commonConfig.get("storm.workers").toString());
         int ackers = new Integer(commonConfig.get("storm.ackers").toString());
         int cores = new Integer(commonConfig.get("process.cores").toString());
-        int parallelism = Math.max(1, cores / 7);
+        int parallelism = new Integer(commonConfig.get("parallelism.default").toString());
         int slideWindowLength = new Integer(commonConfig.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(commonConfig.get("slidingwindow.slide").toString());
 
         Integer dataGeneratorPort = new Integer(commonConfig.get("datasourcesocket.port").toString());
-        String dataGeneratorHost = InetAddress.getLocalHost().getHostName();
+        String dataGeneratorHost = commonConfig.get("datasourcesocket.host").toString();
 
         Long benchmarkingCount = new Long(commonConfig.get("benchmarking.count").toString());
         Long warmupCount = new Long(commonConfig.get("warmup.count").toString());
         Long sleepTime = new Long(commonConfig.get("datagenerator.sleep").toString());
         int tridentBatchSize = new Integer(commonConfig.get("trident.batchsize").toString());
         String hdfsUrl = commonConfig.get("output.hdfs.url").toString();
-        String outputPath = commonConfig.get("storm.output").toString();
+        String outputPath = commonConfig.get("trident.output").toString();
 
         DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime);
         Thread.sleep(1000);
@@ -80,7 +80,8 @@ public class TridentBenchmark {
         Config conf = new Config();
         if (runningMode.equals("cluster")) {
             conf.setNumWorkers(workers);
-            StormSubmitter.submitTopologyWithProgressBar(args[0], conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost, dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide, outputPath,hdfsUrl));
+            conf.setNumAckers(workers+3);
+            StormSubmitter.submitTopologyWithProgressBar(args[2], conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost , dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide, outputPath,hdfsUrl));
         } else {
             LocalCluster cluster = new LocalCluster();
             cluster.submitTopology("keyedWindowAggregations", conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost, dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide,outputPath,hdfsUrl));
@@ -121,7 +122,7 @@ public class TridentBenchmark {
         RecordFormat recordFormat = new DelimitedRecordFormat()
                 .withFields(hdfsFields);
 
-        FileRotationPolicy rotationPolicy = new FileSizeRotationPolicy(1.0f, FileSizeRotationPolicy.Units.MB);
+        FileRotationPolicy rotationPolicy = new FileSizeRotationPolicy(0.01f, FileSizeRotationPolicy.Units.KB);
 
         HdfsState.Options options = new HdfsState.HdfsFileOptions()
                 .withFileNameFormat(fileNameFormat)
@@ -133,7 +134,7 @@ public class TridentBenchmark {
 
 
 
-
+TridentState countState =
         topology
                 .newStream("aggregation", spout)
                 .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price")).parallelismHint(parallelism)
@@ -245,7 +246,7 @@ class MinMaxAggregator extends BaseAggregator<Map<String, State>> {
         }
         state.max = Math.max(state.max, maxPrice);
         state.min = Math.min(state.min, minPrice);
-
+        System.out.println("DEDEDE");
         partitionState.put(partition, state);
     }
 
