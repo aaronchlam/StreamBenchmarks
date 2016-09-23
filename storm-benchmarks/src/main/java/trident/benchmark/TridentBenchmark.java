@@ -9,7 +9,6 @@ import org.apache.storm.StormSubmitter;
 import org.apache.storm.generated.StormTopology;
 import org.apache.storm.hdfs.trident.HdfsState;
 import org.apache.storm.hdfs.trident.HdfsStateFactory;
-import org.apache.storm.hdfs.trident.HdfsUpdater;
 import org.apache.storm.hdfs.trident.format.DefaultFileNameFormat;
 import org.apache.storm.hdfs.trident.format.DelimitedRecordFormat;
 import org.apache.storm.hdfs.trident.format.FileNameFormat;
@@ -17,28 +16,28 @@ import org.apache.storm.hdfs.trident.format.RecordFormat;
 import org.apache.storm.hdfs.trident.rotation.FileRotationPolicy;
 import org.apache.storm.hdfs.trident.rotation.FileSizeRotationPolicy;
 import org.apache.storm.topology.base.BaseWindowedBolt;
-import org.apache.storm.trident.Stream;
-import org.apache.storm.trident.TridentState;
 import org.apache.storm.trident.TridentTopology;
-import org.apache.storm.trident.operation.*;
-import org.apache.storm.trident.operation.impl.GroupedAggregator;
+import org.apache.storm.trident.operation.BaseAggregator;
+import org.apache.storm.trident.operation.BaseFunction;
+import org.apache.storm.trident.operation.MapFunction;
+import org.apache.storm.trident.operation.TridentCollector;
 import org.apache.storm.trident.spout.IBatchSpout;
 import org.apache.storm.trident.state.StateFactory;
 import org.apache.storm.trident.tuple.TridentTuple;
-import org.apache.storm.trident.windowing.InMemoryWindowsStore;
 import org.apache.storm.trident.windowing.InMemoryWindowsStoreFactory;
-import org.apache.storm.trident.windowing.WindowsStore;
-import org.apache.storm.trident.windowing.WindowsStoreFactory;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Values;
 import org.json.JSONObject;
 
+import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileReader;
-import java.io.IOException;
-import java.net.InetAddress;
+import java.io.FileWriter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.apache.storm.hdfs.trident.HdfsUpdater;
 
 /**
  * Created by jeka01 on 15/09/16.
@@ -71,7 +70,7 @@ public class TridentBenchmark {
         int tridentBatchSize = new Integer(commonConfig.get("trident.batchsize").toString());
         String hdfsUrl = commonConfig.get("output.hdfs.url").toString();
         String outputPath = commonConfig.get("trident.output").toString();
-
+	Float fileRotationSize = Float.parseFloat(commonConfig.get("file.rotation.size").toString());
         DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime);
         Thread.sleep(1000);
 
@@ -81,10 +80,10 @@ public class TridentBenchmark {
         if (runningMode.equals("cluster")) {
             conf.setNumWorkers(workers);
             conf.setNumAckers(workers+3);
-            StormSubmitter.submitTopologyWithProgressBar(args[2], conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost , dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide, outputPath,hdfsUrl));
+            StormSubmitter.submitTopologyWithProgressBar(args[2], conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost , dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide, outputPath,hdfsUrl,fileRotationSize ));
         } else {
             LocalCluster cluster = new LocalCluster();
-            cluster.submitTopology("keyedWindowAggregations", conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost, dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide,outputPath,hdfsUrl));
+            cluster.submitTopology(args[2], conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost, dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide,outputPath,hdfsUrl,fileRotationSize));
 
         }
 
@@ -93,7 +92,7 @@ public class TridentBenchmark {
         //  Thread.sleep(100000);
     }
 
-    public static StormTopology keyedWindowAggregations(IBatchSpout spout, int parallelism, int slideWindowLength, int slideWindowSlide, String outputPath, String hdfsUrl) throws Exception {
+    public static StormTopology keyedWindowAggregations(IBatchSpout spout, int parallelism, int slideWindowLength, int slideWindowSlide, String outputPath, String hdfsUrl,float fileRotationSize) throws Exception {
 
         // A topology is a set of streams.
         // A stream is a DAG of Spouts and Bolts.
@@ -122,7 +121,7 @@ public class TridentBenchmark {
         RecordFormat recordFormat = new DelimitedRecordFormat()
                 .withFields(hdfsFields);
 
-        FileRotationPolicy rotationPolicy = new FileSizeRotationPolicy(0.01f, FileSizeRotationPolicy.Units.KB);
+        FileRotationPolicy rotationPolicy = new FileSizeRotationPolicy(fileRotationSize, FileSizeRotationPolicy.Units.KB);
 
         HdfsState.Options options = new HdfsState.HdfsFileOptions()
                 .withFileNameFormat(fileNameFormat)
@@ -134,17 +133,18 @@ public class TridentBenchmark {
 
 
 
-TridentState countState =
         topology
                 .newStream("aggregation", spout)
-                .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price")).parallelismHint(parallelism)
+                .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price"))
                 .partitionBy(new Fields("geo")).parallelismHint(parallelism)
                 .slidingWindow(new BaseWindowedBolt.Duration(slideWindowLength, TimeUnit.MILLISECONDS),
                         new BaseWindowedBolt.Duration(slideWindowSlide, TimeUnit.MILLISECONDS),
                         new InMemoryWindowsStoreFactory(),
                         new Fields("geo", "ts", "max_price", "min_price"),
                         new MinMaxAggregator(),
-                        new Fields("geo", "ts", "max_price", "min_price")).parallelismHint(parallelism)
+                        new Fields("geo", "ts", "max_price", "min_price"))
+        	 .map(new FinalTS())       
+		// .map(new MyFileOutputter(outputPath));
                 .partitionPersist(factory, hdfsFields, new HdfsUpdater(), new Fields());
 
 
@@ -265,3 +265,49 @@ class State {
     long ts = 0;
     String id = "";
 }
+
+class MyFileOutputter implements MapFunction {
+    private File file;
+
+    public MyFileOutputter(String outputDir){
+        try{
+            String uniqueID = UUID.randomUUID().toString();
+            file = new File(outputDir+uniqueID+".csv");
+            file.createNewFile();
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+
+    }
+
+    @Override
+    public Values execute(TridentTuple t) {
+        try{
+            FileWriter fileWriter = new FileWriter(file);
+            fileWriter.write(t.getString(0) + "," + t.getLong(1) + "," + t.getDouble(2) + "," + t.getDouble(3));
+            fileWriter.flush();
+            fileWriter.close();
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+        return new Values(t);
+    }
+}
+class FinalTS implements MapFunction {
+
+    @Override
+    public Values execute(TridentTuple tuple) {
+        Long ts = tuple.getLong(1);
+        Long difference = System.nanoTime() - ts;
+        return new Values(
+                tuple.getString(0),
+                difference,
+                tuple.getDouble(2),
+                tuple.getDouble(3)
+        );
+
+    }
+}
+
