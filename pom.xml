@@ -23,8 +23,8 @@ Licensed under the terms of the Apache License 2.0. Please see LICENSE file in t
         <scala.version>2.10.4</scala.version>
         <json.version>20141113</json.version>
         <jedis.version>2.4.2</jedis.version>
+	<slf4j.version>1.7.7</slf4j.version>
         <sedis.version>1.2.2</sedis.version>
-        <slf4j.version>1.7.7</slf4j.version>
         <commons-cli.version>1.3.1</commons-cli.version>
         <snakeyaml.version>1.11</snakeyaml.version>
         <yamlbeans.version>1.09</yamlbeans.version>
@@ -36,6 +36,11 @@ Licensed under the terms of the Apache License 2.0. Please see LICENSE file in t
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
             </dependency>
 
 
@@ -64,11 +69,6 @@ Licensed under the terms of the Apache License 2.0. Please see LICENSE file in t
                 <groupId>com.esotericsoftware.yamlbeans</groupId>
                 <artifactId>yamlbeans</artifactId>
                 <version>${yamlbeans.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-api</artifactId>
-                <version>${slf4j.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.yahoo.stream</groupId>

@@ -5,7 +5,6 @@
 package flink.benchmark;
 
 import benchmark.common.advertising.RedisAdCampaignCache;
-import benchmark.common.advertising.CampaignProcessorCommon;
 import com.esotericsoftware.yamlbeans.YamlReader;
 import data.source.model.AdsEvent;
 import data.source.socket.DataGenerator;

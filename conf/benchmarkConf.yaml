@@ -35,21 +35,24 @@ flush.rate: 100
 flink.output: "/Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/flink/flink.csv"
 spark.output: "file:///Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/spark/"
 trident.output: "/share/hadoop/jkarimov/StreamBenchmarks/output/trident/trident-fast-8-4.csv"
-#storm.output: "file:///Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/storm/"
+
 kafka.output: "/Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/kafka/kafka.txt"
 
 
 #storm
+#output.hdfs.url: "hdfs://cloud-7:44000"
 output.hdfs.url: "file://localhost"
+
+file.rotation.size: "0.1f"
 
 #Use Case Specific
 #sliding window, processing time, seconds
 slidingwindow.length: 8000
 slidingwindow.slide: 4000
 
-benchmarking.count : 300
-warmup.count : 100
-datagenerator.sleep : 1000
+benchmarking.count : 3000
+warmup.count : 1000
+datagenerator.sleep : 100
 
 #Kafka-Streams specific
 kafkastream.output.topic: "ks-result"
