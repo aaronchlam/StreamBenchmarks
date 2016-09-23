@@ -58,12 +58,12 @@ public class TridentBenchmark {
         int workers = new Integer(commonConfig.get("storm.workers").toString());
         int ackers = new Integer(commonConfig.get("storm.ackers").toString());
         int cores = new Integer(commonConfig.get("process.cores").toString());
-        int parallelism = Math.max(1, cores / 7);
+        int parallelism = 1;
         int slideWindowLength = new Integer(commonConfig.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(commonConfig.get("slidingwindow.slide").toString());
 
         Integer dataGeneratorPort = new Integer(commonConfig.get("datasourcesocket.port").toString());
-        String dataGeneratorHost = InetAddress.getLocalHost().getHostName();
+        String dataGeneratorHost = "localhost";
 
         Long benchmarkingCount = new Long(commonConfig.get("benchmarking.count").toString());
         Long warmupCount = new Long(commonConfig.get("warmup.count").toString());
@@ -80,7 +80,8 @@ public class TridentBenchmark {
         Config conf = new Config();
         if (runningMode.equals("cluster")) {
             conf.setNumWorkers(workers);
-            StormSubmitter.submitTopologyWithProgressBar(args[0], conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost, dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide, outputPath,hdfsUrl));
+            conf.setNumAckers(workers+3);
+            StormSubmitter.submitTopologyWithProgressBar("TridentBenchmark", conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost, dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide, outputPath,hdfsUrl));
         } else {
             LocalCluster cluster = new LocalCluster();
             cluster.submitTopology("keyedWindowAggregations", conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost, dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide,outputPath,hdfsUrl));
@@ -121,7 +122,7 @@ public class TridentBenchmark {
         RecordFormat recordFormat = new DelimitedRecordFormat()
                 .withFields(hdfsFields);
 
-        FileRotationPolicy rotationPolicy = new FileSizeRotationPolicy(1.0f, FileSizeRotationPolicy.Units.MB);
+        FileRotationPolicy rotationPolicy = new FileSizeRotationPolicy(0.1f, FileSizeRotationPolicy.Units.KB);
 
         HdfsState.Options options = new HdfsState.HdfsFileOptions()
                 .withFileNameFormat(fileNameFormat)
@@ -133,17 +134,26 @@ public class TridentBenchmark {
 
 
 
-
+        TridentState countState =
         topology
                 .newStream("aggregation", spout)
-                .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price")).parallelismHint(parallelism)
-                .partitionBy(new Fields("geo")).parallelismHint(parallelism)
+                .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price"))
+                .partitionBy(new Fields("geo")).parallelismHint(10)
                 .slidingWindow(new BaseWindowedBolt.Duration(slideWindowLength, TimeUnit.MILLISECONDS),
                         new BaseWindowedBolt.Duration(slideWindowSlide, TimeUnit.MILLISECONDS),
                         new InMemoryWindowsStoreFactory(),
                         new Fields("geo", "ts", "max_price", "min_price"),
                         new MinMaxAggregator(),
-                        new Fields("geo", "ts", "max_price", "min_price")).parallelismHint(parallelism)
+                        new Fields("geo", "ts", "max_price", "min_price"))
+                .map(new FinalTS())
+                .peek(new Consumer() {
+            @Override
+            public void accept(TridentTuple tridentTuple) {
+                System.out.println(tridentTuple.getLong(1) + " dede");
+            }
+        })
+
+
                 .partitionPersist(factory, hdfsFields, new HdfsUpdater(), new Fields());
 
 
@@ -182,6 +192,21 @@ class SelectFields extends BaseFunction {
     }
 }
 
+class FinalTS implements MapFunction {
+
+    @Override
+    public Values execute(TridentTuple tuple) {
+        Long ts = tuple.getLong(1);
+        Long difference = System.nanoTime() - ts;
+        return new Values(
+                tuple.getString(0),
+                difference,
+                tuple.getDouble(2),
+                tuple.getDouble(3)
+        );
+
+    }
+}
 
 //class MinMaxAggregator extends BaseAggregator<MinMaxAggregator.State> {
 //
@@ -245,7 +270,6 @@ class MinMaxAggregator extends BaseAggregator<Map<String, State>> {
         }
         state.max = Math.max(state.max, maxPrice);
         state.min = Math.min(state.min, minPrice);
-
         partitionState.put(partition, state);
     }
 

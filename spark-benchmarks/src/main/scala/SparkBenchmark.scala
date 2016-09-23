@@ -49,20 +49,21 @@ object SparkBenchmark {
     val aggregatedStream = keyedStream.flatMap( x => x._2.toList )
                                       .window(Milliseconds(slidingWindowLength),Milliseconds(slidingWindowSlide))
                                        .reduce( (t1 ,t2) => (minMaxTuples(t1,t2)) )
-
+    
     //use case ends here
 
     val resultStream = aggregatedStream.map(tuple => new Tuple4[String, Long, Double, Double](tuple._1, System.nanoTime() - tuple._2, tuple._3, tuple._4))
     val outputFile = commonConfig.get("spark.output").toString
-   // resultStream.saveAsTextFiles(outputFile);
-    resultStream.print()
+
+    resultStream.saveAsTextFiles(outputFile);
+    //resultStream.print()
 
     val warmupCount: Long = commonConfig.get("warmup.count").toString.toLong
     val benchmarkingCount: Long = commonConfig.get("benchmarking.count").toString.toLong
     val sleepTime: Long = commonConfig.get("datagenerator.sleep").toString.toLong
 
     DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime);
-    Thread.sleep(1000L)
+    //Thread.sleep(1000L)
 
     ssc.start()
 
