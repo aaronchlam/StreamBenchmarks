@@ -61,12 +61,13 @@ public class FlinkBenchmark {
         int hosts = new Integer(conf.get("process.hosts").toString());
         int cores = new Integer(conf.get("process.cores").toString());
 
-        String dataGeneratorHost = "localhost";
+        String dataGeneratorHost = InetAddress.getLocalHost().getHostName();
         Integer dataGeneratorPort = new Integer(conf.get("datasourcesocket.port").toString());
         int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
-
-        ParameterTool flinkBenchmarkParams = ParameterTool.fromMap(getFlinkConfs(conf));
+	Long flushRate = new Long (conf.get("flush.rate").toString());
+        int parallelism = new Integer(conf.get("parallelism.default").toString());
+	ParameterTool flinkBenchmarkParams = ParameterTool.fromMap(getFlinkConfs(conf));
 
         LOG.info("conf: {}", conf);
         LOG.info("Parameters used: {}", flinkBenchmarkParams.toMap());
@@ -76,14 +77,14 @@ public class FlinkBenchmark {
 
         // Set the buffer timeout (default 100)
         // Lowering the timeout will lead to lower latencies, but will eventually reduce throughput.
-        env.setBufferTimeout(100);
+        env.setBufferTimeout(flushRate);
 
         if (flinkBenchmarkParams.has("flink.checkpoint-interval")) {
             // enable checkpointing for fault tolerance
             env.enableCheckpointing(flinkBenchmarkParams.getLong("flink.checkpoint-interval", 1000));
         }
         // set default parallelism for all operators (recommended value: number of available worker CPU cores in the cluster (hosts * cores))
-        env.setParallelism(hosts * cores);
+        env.setParallelism(parallelism);
         // env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
 
@@ -125,8 +126,6 @@ public class FlinkBenchmark {
         });
 
         String outputFile = conf.get("flink.output").toString();
-        Long flushRate = new Long (conf.get("flush.rate").toString());
-
         resultingStream.addSink(new WriteSinkFunctionByMillis<Tuple4<String, Long, Double, Double>>(outputFile, new WriteFormatAsCsv(), flushRate));
 
         Long benchmarkingCount = new Long(conf.get("benchmarking.count").toString());
@@ -134,7 +133,7 @@ public class FlinkBenchmark {
         Long sleepTime = new Long(conf.get("datagenerator.sleep").toString());
 
         DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime);
-       // Thread.sleep(1000L);
+        Thread.sleep(2000L);
         env.execute();
     }
 

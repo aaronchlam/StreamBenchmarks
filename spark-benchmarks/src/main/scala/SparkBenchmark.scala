@@ -27,8 +27,8 @@ object SparkBenchmark {
       case other => throw new ClassCastException(other + " not a Number")
     }
 
-    val master = commonConfig.get("spark.master").toString
-    val sparkConf = new SparkConf().setAppName("KafkaRedisAdvertisingStream").setMaster(master)
+   // val master = commonConfig.get("spark.master").toString
+    val sparkConf = new SparkConf().setAppName("KafkaRedisAdvertisingStream")
     val ssc = new StreamingContext(sparkConf, Milliseconds(batchSize))
     //val textSource = ssc.textFileStream("hdfs://...")
 
@@ -54,7 +54,6 @@ object SparkBenchmark {
 
     val resultStream = aggregatedStream.map(tuple => new Tuple4[String, Long, Double, Double](tuple._1, System.nanoTime() - tuple._2, tuple._3, tuple._4))
     val outputFile = commonConfig.get("spark.output").toString
-
     resultStream.saveAsTextFiles(outputFile);
     //resultStream.print()
 

@@ -43,17 +43,19 @@ public class DataGenerator extends Thread {
                             Thread.sleep(sleepTime);
                         JSONObject obj = dg.generateJson(true);
                         out.println(obj.toString());
+//			System.out.println(obj.toString() +" left--" + (warmupCount-i));
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
-
+//                System.out.println("---WARMUP BENCHMARK ENDED----");
                 for (long i = 0; i < benchmarkCount; i++) {
                     try {
                         if (sleepTime != 0)
                             Thread.sleep(sleepTime);
                         JSONObject obj = dg.generateJson(false);
                         out.println(obj.toString());
+  //                      System.out.println(obj.toString() +" gone");
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -69,14 +71,17 @@ public class DataGenerator extends Thread {
         }
     }
 
-    public static void generate(int port, long benchmarkingCount, long warmupCount, long sleepTime) throws YamlException, FileNotFoundException {
+    public static void generate(int port, long benchmarkingCount, long warmupCount, long sleepTime) throws Exception {
         try {
             Thread t = new DataGenerator(port, benchmarkingCount, warmupCount, sleepTime);
             t.start();
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
+   
+   public static void main(String[] args) throws Exception{
+      generate(9093,10000,10000,1000 );
+   }
 
 }

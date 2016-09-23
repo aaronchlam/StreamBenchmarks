@@ -5,52 +5,57 @@ kafka.brokers:
     - "localhost"
 
 zookeeper.servers:
-    - "localhost"
+    - "cloud-8"
 
 kafka.port: 9092
 zookeeper.port: 2181
 kafka.topic: "ad-events"
 kafka.partitions: 1
 
-process.hosts: 1
-process.cores: 1
+process.hosts: 5
+process.cores: 16
 
 #STORM Specific
-storm.workers: 1
+storm.workers: 4
 storm.ackers: 2
 
 #Spark Specific
 spark.batchtime: 2000
-spark.master: "local[2]"
+spark.master: "spark://cloud-8:7077"
 
 #Data Source
 datasourcesocket.port: 9093
-#datasourcesocket.host: "localhost"
+datasourcesocket.host: "cloud-8"
 
 #Data Sink
 datasinksocket.port: 8189
 datasinksocket.host: "localhost"
 flush.rate: 100
-output.hdfs.url: "file://localhost"
 
 flink.output: "/Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/flink/flink.csv"
 spark.output: "file:///Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/spark/"
-storm.output: "/Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/storm/"
+trident.output: "/share/hadoop/jkarimov/StreamBenchmarks/output/trident/trident-fast-8-4.csv"
+#storm.output: "file:///Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/storm/"
 kafka.output: "/Users/jeka01/Documents/workspaces/benchmarking/streaming-benchmarks-master/output/kafka/kafka.txt"
+
+
+#storm
+output.hdfs.url: "file://localhost"
 
 #Use Case Specific
 #sliding window, processing time, seconds
 slidingwindow.length: 8000
-slidingwindow.slide: 400
+slidingwindow.slide: 4000
 
-# Benchmarking time, in milliseconds
-benchmarking.count : 1200000
-warmup.count : 120000
-datagenerator.sleep : 100
+benchmarking.count : 300
+warmup.count : 100
+datagenerator.sleep : 1000
 
 #Kafka-Streams specific
 kafkastream.output.topic: "ks-result"
 
 #Trident specific
-trident.batchsize: 3
+trident.batchsize: 10
 
+
+parallelism.default: 16
