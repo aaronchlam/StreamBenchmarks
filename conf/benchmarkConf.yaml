@@ -21,11 +21,13 @@ storm.ackers: 2
 
 #Spark Specific
 spark.batchtime: 2000
-spark.master: "spark://cloud-8:7077"
+#spark.master: "spark://cloud-8:7077"
+spark.master: "local[2]"
 
 #Data Source
 datasourcesocket.port: 9093
-datasourcesocket.host: "cloud-8"
+#datasourcesocket.host: "cloud-8"
+datasourcesocket.host: "localhost"
 
 #Data Sink
 datasinksocket.port: 8189
@@ -50,9 +52,9 @@ file.rotation.size: "0.1f"
 slidingwindow.length: 8000
 slidingwindow.slide: 4000
 
-benchmarking.count : 3000
-warmup.count : 1000
-datagenerator.sleep : 100
+benchmarking.count : 300
+warmup.count : 100
+datagenerator.sleep : 1000
 
 #Kafka-Streams specific
 kafkastream.output.topic: "ks-result"
