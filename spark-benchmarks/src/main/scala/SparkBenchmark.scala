@@ -18,7 +18,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Milliseconds, Minutes, Seconds, StreamingContext}
 import org.json.JSONObject
-
+import org.apache.log4j.{Level, Logger}
 
 object SparkBenchmark {
   def main(args: Array[String]) {
@@ -31,8 +31,11 @@ object SparkBenchmark {
    val master = commonConfig.get("spark.master").toString
     val sparkConf = new SparkConf().setAppName("KafkaRedisAdvertisingStream").setMaster(master)
     val ssc = new StreamingContext(sparkConf, Milliseconds(batchSize))
-    //val textSource = ssc.textFileStream("hdfs://...")
 
+    val rootLogger = Logger.getRootLogger()
+    rootLogger.setLevel(Level.ERROR)
+
+    //val textSource = ssc.textFileStream("hdfs://...")
     val dataGeneratorHost = commonConfig.get("datasourcesocket.host").toString()
     val dataGeneratorPort = commonConfig.get("datasourcesocket.port").toString().toInt
 
@@ -46,10 +49,11 @@ object SparkBenchmark {
       // use case begins here
     //val keyedStream = tupleStream.transform(rdd => rdd.keyBy(_._1).groupByKey()   )
 
+
     val aggregatedStream = keyedStream.groupByKeyAndWindow(Milliseconds(slidingWindowLength),Milliseconds(slidingWindowSlide))
-          
-        .map(window=>minMaxTuplesRDD(window))
-      //.foreachRDD(rdd=>{rdd.foreach(print);print(rdd.keys); rdd})
+
+      .map(window=>minMaxTuplesRDD(window))
+      //.foreachRDD(rdd=>rdd)
                                        //   .foreachRDD(rdd=>{rdd.foreach(print) ; println("ended here ")})
 
 
@@ -59,7 +63,7 @@ object SparkBenchmark {
     val resultStream = aggregatedStream.map(tuple =>  new Tuple4[String, Long, Double, Double](tuple._1, System.currentTimeMillis() - tuple._2, tuple._3, tuple._4) )
     val outputFile = commonConfig.get("spark.output").toString
     resultStream.saveAsTextFiles(outputFile);
-
+    resultStream.print();
     val warmupCount: Long = commonConfig.get("warmup.count").toString.toLong
     val benchmarkingCount: Long = commonConfig.get("benchmarking.count").toString.toLong
     val sleepTime: Long = commonConfig.get("datagenerator.sleep").toString.toLong
@@ -77,7 +81,8 @@ object SparkBenchmark {
 
     val price: Double = obj.getJSONObject("m").getDouble("price")
     val geo: String = obj.getJSONObject("t").getString("geo")
-    return ((geo),( System.currentTimeMillis(),price, price))
+    val ts = obj.getLong("ts");
+    return ((geo),(ts,price, price))
   }
 
   def minMaxTuples (t1: (String, Long, Double, Double) ,
@@ -88,11 +93,15 @@ object SparkBenchmark {
     return new Tuple4[String, Long, Double, Double](t1._1, ts, maxPrice, minPrice)
   }
 
-  def minMaxTuplesRDD (window: (String, Iterable[(Long, Double, Double)] )) : (String, Long, Double, Double) = {
-      print(window._1)
-      val maxPrice = window._2.toArray.maxBy(_._2)._2
-      val minPrice = window._2.toArray.minBy(_._3)._3
-      val maxTS = window._2.toArray.maxBy(_._1)._1
-      return (window._1,maxTS, maxPrice, minPrice)
+  def minMaxTuplesRDD (window: (String, Iterable[(Long, Double, Double)] )) : (String ,Long,Double, Double) = {
+//      println("Inside Spark")
+//      print(window._1 +' ')
+//      print(window._2.toList.map(t=>t._4))
+//      println("\n")
+      val arr = window._2.toArray
+      val maxPrice = arr.maxBy(_._2)._2
+      val minPrice = arr.minBy(_._3)._3
+      val maxTS = arr.maxBy(_._1)._1
+      return (window._1, maxTS, maxPrice, minPrice)
   }
 }

@@ -42,6 +42,7 @@ public class DataGenerator extends Thread {
                         if (sleepTime != 0)
                             Thread.sleep(sleepTime);
                         JSONObject obj = dg.generateJson(true);
+                      //  System.out.println(obj.getJSONObject("s").getString("iid") + "  " + obj.getJSONObject("t").getString("geo"));
                         out.println(obj.toString());
 //			System.out.println(obj.toString() +" left--" + (warmupCount-i));
                     } catch (Exception e) {
