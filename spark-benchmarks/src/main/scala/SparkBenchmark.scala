@@ -89,6 +89,7 @@ object SparkBenchmark {
   }
 
   def minMaxTuplesRDD (window: (String, Iterable[(Long, Double, Double)] )) : (String, Long, Double, Double) = {
+      print(window._1)
       val maxPrice = window._2.toArray.maxBy(_._2)._2
       val minPrice = window._2.toArray.minBy(_._3)._3
       val maxTS = window._2.toArray.maxBy(_._1)._1
