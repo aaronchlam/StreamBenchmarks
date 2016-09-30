@@ -55,9 +55,9 @@ public class TridentBenchmark {
         Object object = reader.read();
         Map commonConfig = (Map) object;
 
-        int workers = new Integer(commonConfig.get("storm.workers").toString());
-        int ackers = new Integer(commonConfig.get("storm.ackers").toString());
-        int cores = new Integer(commonConfig.get("process.cores").toString());
+       // int workers = new Integer(commonConfig.get("storm.workers").toString());
+//        int ackers = new Integer(commonConfig.get("storm.ackers").toString());
+  //      int cores = new Integer(commonConfig.get("process.cores").toString());
         int parallelism = new Integer(commonConfig.get("parallelism.default").toString());
         int slideWindowLength = new Integer(commonConfig.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(commonConfig.get("slidingwindow.slide").toString());
@@ -79,8 +79,8 @@ public class TridentBenchmark {
         // Storm can be run locally for testing purposes
         Config conf = new Config();
         if (runningMode.equals("cluster")) {
-            conf.setNumWorkers(workers);
-            conf.setNumAckers(workers+3);
+            //conf.setNumWorkers(workers);
+            //conf.setNumAckers(workers+3);
             StormSubmitter.submitTopologyWithProgressBar(args[2], conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost , dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide, outputPath,hdfsUrl,fileRotationSize ));
         } else {
             LocalCluster cluster = new LocalCluster();
@@ -134,7 +134,7 @@ public class TridentBenchmark {
         topology
                 .newStream("aggregation", spout)
                 .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price"))
-                .partitionBy(new Fields("geo")).parallelismHint(10)
+                .partitionBy(new Fields("geo")).parallelismHint(160)
                 .slidingWindow(new BaseWindowedBolt.Duration(slideWindowLength, TimeUnit.MILLISECONDS),
                         new BaseWindowedBolt.Duration(slideWindowSlide, TimeUnit.MILLISECONDS),
                         new InMemoryWindowsStoreFactory(),
@@ -173,7 +173,7 @@ class SelectFields extends BaseFunction {
         Double price = obj.getJSONObject("m").getDouble("price");
         collector.emit(new Values(
                 geo,
-                System.nanoTime(),
+                System.currentTimeMillis() ,
                 price,
                 price
         ));
@@ -296,7 +296,7 @@ class FinalTS implements MapFunction {
     @Override
     public Values execute(TridentTuple tuple) {
         Long ts = tuple.getLong(1);
-        Long difference = System.nanoTime() - ts;
+        Long difference = System.currentTimeMillis()  - ts;
         return new Values(
                 tuple.getString(0),
                 difference,

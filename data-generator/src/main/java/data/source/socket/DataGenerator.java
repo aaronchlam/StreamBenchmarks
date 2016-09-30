@@ -48,8 +48,20 @@ public class DataGenerator extends Thread {
                         e.printStackTrace();
                     }
                 }
-//                System.out.println("---WARMUP BENCHMARK ENDED----");
-                for (long i = 0; i < benchmarkCount; i++) {
+
+                System.out.println("---WARMUP BENCHMARK ENDED----");
+              	long currTime = System.currentTimeMillis();
+		long currIndex = 0L;
+		long thoughput = 0L;
+		long throughputCount = 0L;
+		  for (long i = 0; i < benchmarkCount; i++) {
+		    if(currTime + 1000L < System.currentTimeMillis() ){
+		    	currTime = System.currentTimeMillis();
+			thoughput = thoughput +  (i - currIndex);
+			System.out.println("Throughput is:" + (i - currIndex));
+			currIndex = i;
+			throughputCount++;
+		    }
                     try {
                         if (sleepTime != 0)
                             Thread.sleep(sleepTime);
@@ -60,7 +72,7 @@ public class DataGenerator extends Thread {
                         e.printStackTrace();
                     }
                 }
-                System.out.println("---CURRENT BENCHMARK ENDED----");
+                System.out.println("\n \n ---CURRENT BENCHMARK ENDED---- \n \n Throughtput is " + (thoughput/throughputCount));
             } catch (SocketTimeoutException s) {
                 System.out.println("Socket timed out!");
                 break;

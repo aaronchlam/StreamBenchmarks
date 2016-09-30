@@ -55,10 +55,9 @@ object SparkBenchmark {
     
     //use case ends here
 
-    val resultStream = aggregatedStream.map(tuple => new Tuple4[String, Long, Double, Double](tuple._1, System.nanoTime() - tuple._2, tuple._3, tuple._4))
+    val resultStream = aggregatedStream.map(tuple =>  new Tuple4[String, Long, Double, Double](tuple._1, System.currentTimeMillis() - tuple._2, tuple._3, tuple._4) )
     val outputFile = commonConfig.get("spark.output").toString
     resultStream.saveAsTextFiles(outputFile);
-    //resultStream.print()
 
     val warmupCount: Long = commonConfig.get("warmup.count").toString.toLong
     val benchmarkingCount: Long = commonConfig.get("benchmarking.count").toString.toLong
@@ -77,7 +76,7 @@ object SparkBenchmark {
 
     val price: Double = obj.getJSONObject("m").getDouble("price")
     val geo: String = obj.getJSONObject("t").getString("geo")
-    return ((geo),( System.nanoTime(),price, price))
+    return ((geo),( System.currentTimeMillis(),price, price))
   }
 
   def minMaxTuples (t1: (String, Long, Double, Double) ,
@@ -92,7 +91,6 @@ object SparkBenchmark {
       val maxPrice = window._2.toArray.maxBy(_._2)._2
       val minPrice = window._2.toArray.minBy(_._3)._3
       val maxTS = window._2.toArray.maxBy(_._1)._1
-      println(window._1,maxTS, maxPrice, minPrice)
       return (window._1,maxTS, maxPrice, minPrice)
   }
 }
