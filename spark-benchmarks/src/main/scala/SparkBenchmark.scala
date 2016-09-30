@@ -33,7 +33,7 @@ object SparkBenchmark {
     val ssc = new StreamingContext(sparkConf, Milliseconds(batchSize))
     //val textSource = ssc.textFileStream("hdfs://...")
 
-    val dataGeneratorHost = InetAddress.getLocalHost().getHostName()
+    val dataGeneratorHost = commonConfig.get("datasourcesocket.host").toString()
     val dataGeneratorPort = commonConfig.get("datasourcesocket.port").toString().toInt
 
     val slidingWindowLength = commonConfig.get("slidingwindow.length").toString().toInt
@@ -47,6 +47,7 @@ object SparkBenchmark {
     //val keyedStream = tupleStream.transform(rdd => rdd.keyBy(_._1).groupByKey()   )
 
     val aggregatedStream = keyedStream.groupByKeyAndWindow(Milliseconds(slidingWindowLength),Milliseconds(slidingWindowSlide))
+          
         .map(window=>minMaxTuplesRDD(window))
       //.foreachRDD(rdd=>{rdd.foreach(print);print(rdd.keys); rdd})
                                        //   .foreachRDD(rdd=>{rdd.foreach(print) ; println("ended here ")})
@@ -55,7 +56,7 @@ object SparkBenchmark {
     
     //use case ends here
 
-    val resultStream = aggregatedStream.map(tuple => new Tuple4[String, Long, Double, Double](tuple._1, System.nanoTime() - tuple._2, tuple._3, tuple._4))
+    val resultStream = aggregatedStream.map(tuple => new Tuple4[String, Long, Double, Double](tuple._1, System.nanoTime() - tuple._2, tuple._3, tuple._4)  )
     val outputFile = commonConfig.get("spark.output").toString
     resultStream.saveAsTextFiles(outputFile);
     //resultStream.print()
