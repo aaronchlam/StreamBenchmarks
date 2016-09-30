@@ -57,15 +57,15 @@ public class FlinkBenchmark {
         Object object = reader.read();
         Map conf = (Map) object;
 
-        int hosts = new Integer(conf.get("process.hosts").toString());
-        int cores = new Integer(conf.get("process.cores").toString());
+//        int hosts = new Integer(conf.get("process.hosts").toString());
+  //      int cores = new Integer(conf.get("process.cores").toString());
 
         String dataGeneratorHost = InetAddress.getLocalHost().getHostName();
         Integer dataGeneratorPort = new Integer(conf.get("datasourcesocket.port").toString());
         int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
 	    Long flushRate = new Long (conf.get("flush.rate").toString());
-        int parallelism = new Integer(conf.get("parallelism.default").toString());
+        int parallelism =  new Integer(conf.get("parallelism.default").toString());;
 	    ParameterTool flinkBenchmarkParams = ParameterTool.fromMap(getFlinkConfs(conf));
 
         LOG.info("conf: {}", conf);
@@ -94,7 +94,7 @@ public class FlinkBenchmark {
                         JSONObject obj = new JSONObject(s);
                         String geo = obj.getJSONObject("t").getString("geo");
                         Double price = obj.getJSONObject("m").getDouble("price");
-                        return new Tuple4<String, Long, Double, Double>(geo, System.nanoTime(), price, price);
+                        return new Tuple4<String, Long, Double, Double>(geo, System.currentTimeMillis() , price, price);
                     }
                 });
 
@@ -119,8 +119,7 @@ public class FlinkBenchmark {
         DataStream<Tuple4<String, Long, Double, Double>> resultingStream = aggregatedStream.map(new MapFunction<Tuple4<String, Long, Double, Double>, Tuple4<String, Long, Double, Double>>() {
             @Override
             public Tuple4<String, Long, Double, Double> map(Tuple4<String, Long, Double, Double> t1) throws Exception {
-                System.out.println("here it is " + t1.f0);
-                return new Tuple4<String, Long, Double, Double>(t1.f0, System.nanoTime() - t1.f1, t1.f2, t1.f3);
+                return new Tuple4<String, Long, Double, Double>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2, t1.f3);
             }
         });
 
