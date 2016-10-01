@@ -1,10 +1,8 @@
 package data.source.socket;
 
-import com.esotericsoftware.yamlbeans.YamlException;
 import data.source.model.AdsEvent;
 import org.json.JSONObject;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
@@ -19,13 +17,16 @@ public class DataGenerator extends Thread {
     private long benchmarkCount;
     private long warmupCount;
     private long sleepTime;
+    private long blobSize;
 
-    private DataGenerator(int port, long benchmarkCount, long warmupCount, long sleepTime) throws IOException {
+    private DataGenerator(int port, long benchmarkCount, long warmupCount, long sleepTime, long blobSize) throws IOException {
         serverSocket = new ServerSocket(port);
         serverSocket.setSoTimeout(100000);
         this.benchmarkCount = benchmarkCount;
         this.warmupCount = warmupCount;
         this.sleepTime = sleepTime;
+        this.blobSize = blobSize;
+
     }
 
     public void run() {
@@ -41,39 +42,41 @@ public class DataGenerator extends Thread {
                     try {
                         if (sleepTime != 0)
                             Thread.sleep(sleepTime);
-                        JSONObject obj = dg.generateJson(true);
-                      //  System.out.println(obj.getJSONObject("s").getString("iid") + "  " + obj.getJSONObject("t").getString("geo"));
-                        out.println(obj.toString());
-//			System.out.println(obj.toString() +" left--" + (warmupCount-i));
+                        for (int b = 0; b < blobSize && i < warmupCount; b++, i++) {
+                            JSONObject obj = dg.generateJson(true);
+                            out.println(obj.toString());
+                        }
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
 
                 System.out.println("---WARMUP BENCHMARK ENDED----");
-              	long currTime = System.currentTimeMillis();
-		long currIndex = 0L;
-		long thoughput = 0L;
-		long throughputCount = 0L;
-		  for (long i = 0; i < benchmarkCount; i++) {
-		    if(currTime + 1000L < System.currentTimeMillis() ){
-		    	currTime = System.currentTimeMillis();
-			thoughput = thoughput +  (i - currIndex);
-			System.out.println("Throughput is:" + (i - currIndex));
-			currIndex = i;
-			throughputCount++;
-		    }
+                long currTime = System.currentTimeMillis();
+                long currIndex = 0L;
+                long thoughput = 0L;
+                long throughputCount = 0L;
+                for (long i = 0; i < benchmarkCount; i++) {
+                    if (currTime + 1000L < System.currentTimeMillis()) {
+                        currTime = System.currentTimeMillis();
+                        thoughput = thoughput + (i - currIndex);
+                        System.out.println("Throughput is:" + (i - currIndex));
+                        currIndex = i;
+                        throughputCount++;
+                    }
                     try {
                         if (sleepTime != 0)
                             Thread.sleep(sleepTime);
-                        JSONObject obj = dg.generateJson(false);
-                        out.println(obj.toString());
-  //                      System.out.println(obj.toString() +" gone");
+                        for (int b = 0; b < blobSize && i < benchmarkCount; b++, i++) {
+                            JSONObject obj = dg.generateJson(false);
+                            out.println(obj.toString());
+                        }
+                        //                      System.out.println(obj.toString() +" gone");
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
-                System.out.println("\n \n ---CURRENT BENCHMARK ENDED---- \n \n Throughtput is " + (thoughput/throughputCount));
+                System.out.println("\n \n ---CURRENT BENCHMARK ENDED---- \n \n Throughtput is " + (thoughput / throughputCount));
             } catch (SocketTimeoutException s) {
                 System.out.println("Socket timed out!");
                 break;
@@ -84,17 +87,18 @@ public class DataGenerator extends Thread {
         }
     }
 
-    public static void generate(int port, long benchmarkingCount, long warmupCount, long sleepTime) throws Exception {
+
+    public static void generate(int port, long benchmarkingCount, long warmupCount, long sleepTime, long blobSize) throws Exception {
         try {
-            Thread t = new DataGenerator(port, benchmarkingCount, warmupCount, sleepTime);
+            Thread t = new DataGenerator(port, benchmarkingCount, warmupCount, sleepTime,blobSize);
             t.start();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-   
-   public static void main(String[] args) throws Exception{
-      generate(9093,10000,10000,1000 );
-   }
+
+    public static void main(String[] args) throws Exception {
+        generate(9093, 10000, 10000, 1000,10);
+    }
 
 }

@@ -4,38 +4,27 @@
  */
 package flink.benchmark;
 
-import benchmark.common.advertising.RedisAdCampaignCache;
 import com.esotericsoftware.yamlbeans.YamlReader;
-import data.source.model.AdsEvent;
 import data.source.socket.DataGenerator;
-import org.apache.commons.collections.bag.SynchronizedSortedBag;
-import org.apache.flink.api.common.functions.*;
-import org.apache.flink.api.java.io.CsvOutputFormat;
-import org.apache.flink.api.java.io.TextOutputFormat;
-import org.apache.flink.api.java.tuple.*;
+import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.functions.ReduceFunction;
+import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.api.java.utils.ParameterTool;
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.core.fs.FileSystem;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
-import org.apache.flink.streaming.api.functions.sink.*;
-import org.apache.flink.streaming.api.functions.source.SourceFunction;
-import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.api.functions.sink.SinkFunction;
+import org.apache.flink.streaming.api.functions.sink.WriteFormatAsCsv;
+import org.apache.flink.streaming.api.functions.sink.WriteSinkFunctionByMillis;
 import org.apache.flink.streaming.api.windowing.time.Time;
-import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
-import org.apache.flink.util.Collector;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.InetAddress;
-import java.text.SimpleDateFormat;
-import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * To Run:  flink run target/flink-benchmarks-0.1.0-FlinkBenchmark.jar  --confPath "../conf/benchmarkConf.yaml"
@@ -66,10 +55,12 @@ public class FlinkBenchmark {
         int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
 	    Long flushRate = new Long (conf.get("flush.rate").toString());
         int parallelism =  new Integer(conf.get("parallelism.default").toString());;
-	    ParameterTool flinkBenchmarkParams = ParameterTool.fromMap(getFlinkConfs(conf));
+        //TODO
+	  //  ParameterTool flinkBenchmarkParams = ParameterTool.fromMap(getFlinkConfs(conf));
 
         LOG.info("conf: {}", conf);
-        LOG.info("Parameters used: {}", flinkBenchmarkParams.toMap());
+        //TODO
+      //  LOG.info("Parameters used: {}", flinkBenchmarkParams.toMap());
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         //env.getConfig().setGlobalJobParameters(flinkBenchmarkParams);
@@ -77,11 +68,12 @@ public class FlinkBenchmark {
         // Set the buffer timeout (default 100)
         // Lowering the timeout will lead to lower latencies, but will eventually reduce throughput.
         env.setBufferTimeout(flushRate);
-
+/*
         if (flinkBenchmarkParams.has("flink.checkpoint-interval")) {
             // enable checkpointing for fault tolerance
             env.enableCheckpointing(flinkBenchmarkParams.getLong("flink.checkpoint-interval", 1000));
         }
+        */
         // set default parallelism for all operators (recommended value: number of available worker CPU cores in the cluster (hosts * cores))
         env.setParallelism(parallelism);
         // env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
@@ -129,8 +121,9 @@ public class FlinkBenchmark {
         Long benchmarkingCount = new Long(conf.get("benchmarking.count").toString());
         Long warmupCount = new Long(conf.get("warmup.count").toString());
         Long sleepTime = new Long(conf.get("datagenerator.sleep").toString());
+        Long blobSize = new Long(conf.get("datagenerator.blobsize").toString());
 
-        DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime);
+        DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime,blobSize);
         Thread.sleep(2000L);
         env.execute();
     }

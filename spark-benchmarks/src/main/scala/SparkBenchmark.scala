@@ -67,8 +67,9 @@ object SparkBenchmark {
     val warmupCount: Long = commonConfig.get("warmup.count").toString.toLong
     val benchmarkingCount: Long = commonConfig.get("benchmarking.count").toString.toLong
     val sleepTime: Long = commonConfig.get("datagenerator.sleep").toString.toLong
+    val blobSize: Long =  commonConfig.get("datagenerator.blobsize").toString.toLong
 
-    DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime);
+    DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime,blobSize);
     Thread.sleep(1000L)
 
     ssc.start()

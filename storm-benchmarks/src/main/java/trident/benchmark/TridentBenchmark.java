@@ -9,6 +9,7 @@ import org.apache.storm.StormSubmitter;
 import org.apache.storm.generated.StormTopology;
 import org.apache.storm.hdfs.trident.HdfsState;
 import org.apache.storm.hdfs.trident.HdfsStateFactory;
+import org.apache.storm.hdfs.trident.HdfsUpdater;
 import org.apache.storm.hdfs.trident.format.DefaultFileNameFormat;
 import org.apache.storm.hdfs.trident.format.DelimitedRecordFormat;
 import org.apache.storm.hdfs.trident.format.FileNameFormat;
@@ -30,7 +31,6 @@ import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Values;
 import org.json.JSONObject;
 
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -38,7 +38,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import org.apache.storm.hdfs.trident.HdfsUpdater;
 
 /**
  * Created by jeka01 on 15/09/16.
@@ -71,8 +70,10 @@ public class TridentBenchmark {
         int tridentBatchSize = new Integer(commonConfig.get("trident.batchsize").toString());
         String hdfsUrl = commonConfig.get("output.hdfs.url").toString();
         String outputPath = commonConfig.get("trident.output").toString();
-	Float fileRotationSize = Float.parseFloat(commonConfig.get("file.rotation.size").toString());
-        DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime);
+	    Float fileRotationSize = Float.parseFloat(commonConfig.get("file.rotation.size").toString());
+        Long blobSize = new Long(commonConfig.get("datagenerator.blobsize").toString());
+
+        DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime,blobSize);
         Thread.sleep(1000);
 
 
