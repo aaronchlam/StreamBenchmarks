@@ -8,6 +8,7 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.util.HashMap;
 
 /**
  * Created by jeka01 on 02/09/16.
@@ -18,19 +19,24 @@ public class DataGenerator extends Thread {
     private long warmupCount;
     private long sleepTime;
     private long blobSize;
+    private boolean isRandomGeo;
 
-    private DataGenerator(int port, long benchmarkCount, long warmupCount, long sleepTime, long blobSize) throws IOException {
+    private boolean putTs;
+
+    private DataGenerator( HashMap conf) throws IOException {
+        this.benchmarkCount = new Long(conf.get("benchmarking.count").toString());
+        this.warmupCount = new Long(conf.get("warmup.count").toString());
+        this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
+        this.blobSize = new Long(conf.get("datagenerator.blobsize").toString());
+        this.isRandomGeo = new Boolean(conf.get("datagenerator.israndomgeo").toString());
+        this.putTs = new Boolean(conf.get("datagenerator.ts").toString());
+        Integer port = new Integer(conf.get("datasourcesocket.port").toString());
         serverSocket = new ServerSocket(port);
-        serverSocket.setSoTimeout(100000);
-        this.benchmarkCount = benchmarkCount;
-        this.warmupCount = warmupCount;
-        this.sleepTime = sleepTime;
-        this.blobSize = blobSize;
-
+        serverSocket.setSoTimeout(20000);
     }
 
     public void run() {
-        AdsEvent dg = new AdsEvent();
+        AdsEvent dg = new AdsEvent(isRandomGeo,putTs);
         while (true) {
             try {
                 System.out.println("Waiting for client on port " + serverSocket.getLocalPort() + "...");
@@ -60,7 +66,7 @@ public class DataGenerator extends Thread {
                     if (currTime + 1000L < System.currentTimeMillis()) {
                         currTime = System.currentTimeMillis();
                         thoughput = thoughput + (i - currIndex);
-                        System.out.println("Throughput is:" + (i - currIndex));
+                     //   System.out.println("Throughput is:" + (i - currIndex));
                         currIndex = i;
                         throughputCount++;
                     }
@@ -70,6 +76,9 @@ public class DataGenerator extends Thread {
                         for (int b = 0; b < blobSize && i < benchmarkCount; b++, i++) {
                             JSONObject obj = dg.generateJson(false);
                             out.println(obj.toString());
+                           // System.out.println("DG-" + obj.getJSONObject("t").getString("geo"));
+                            System.out.println(obj.getJSONObject("t").getString("geo")+ " - " + obj.getJSONObject("m").getString("price"));
+
                         }
                         //                      System.out.println(obj.toString() +" gone");
                     } catch (Exception e) {
@@ -88,17 +97,16 @@ public class DataGenerator extends Thread {
     }
 
 
-    public static void generate(int port, long benchmarkingCount, long warmupCount, long sleepTime, long blobSize) throws Exception {
+    public static void generate(HashMap conf) throws Exception {
+
         try {
-            Thread t = new DataGenerator(port, benchmarkingCount, warmupCount, sleepTime,blobSize);
+            Thread t = new DataGenerator(conf);
             t.start();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public static void main(String[] args) throws Exception {
-        generate(9093, 10000, 10000, 1000,10);
-    }
+
 
 }

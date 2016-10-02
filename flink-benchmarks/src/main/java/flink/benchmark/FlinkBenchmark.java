@@ -8,11 +8,12 @@ import com.esotericsoftware.yamlbeans.YamlReader;
 import data.source.socket.DataGenerator;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
-import org.apache.flink.api.java.tuple.Tuple4;
+import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.api.java.utils.ParameterTool;
+import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.sink.WriteFormatAsCsv;
 import org.apache.flink.streaming.api.functions.sink.WriteSinkFunctionByMillis;
 import org.apache.flink.streaming.api.windowing.time.Time;
@@ -20,11 +21,8 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
-import java.net.InetAddress;
+import java.io.FileReader;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * To Run:  flink run target/flink-benchmarks-0.1.0-FlinkBenchmark.jar  --confPath "../conf/benchmarkConf.yaml"
@@ -39,173 +37,92 @@ public class FlinkBenchmark {
         if (args == null || args.length != 2) {
             throw new Exception("configuration file parameter is needed. Ex: --confPath ../conf/benchmarkConf.yaml");
         }
-
         ParameterTool parameterTool = ParameterTool.fromArgs(args);
         String confFilePath = parameterTool.getRequired("confPath");
         YamlReader reader = new YamlReader(new FileReader(confFilePath));
         Object object = reader.read();
-        Map conf = (Map) object;
+        HashMap conf = (HashMap) object;
 
-//        int hosts = new Integer(conf.get("process.hosts").toString());
-  //      int cores = new Integer(conf.get("process.cores").toString());
-
-        String dataGeneratorHost = InetAddress.getLocalHost().getHostName();
+        String benchmarkUseCase = conf.get("benchmarking.usecase").toString();
+        String dataGeneratorHost = conf.get("datasourcesocket.host").toString();
         Integer dataGeneratorPort = new Integer(conf.get("datasourcesocket.port").toString());
-        int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
-        int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
 	    Long flushRate = new Long (conf.get("flush.rate").toString());
-        int parallelism =  new Integer(conf.get("parallelism.default").toString());;
-        //TODO
-	  //  ParameterTool flinkBenchmarkParams = ParameterTool.fromMap(getFlinkConfs(conf));
+        int parallelism =  new Integer(conf.get("parallelism.default").toString());
 
-        LOG.info("conf: {}", conf);
-        //TODO
-      //  LOG.info("Parameters used: {}", flinkBenchmarkParams.toMap());
+        //TODO parametertool, checkpoint flush rate, kafka zookeeper configurations
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        //env.getConfig().setGlobalJobParameters(flinkBenchmarkParams);
-
-        // Set the buffer timeout (default 100)
-        // Lowering the timeout will lead to lower latencies, but will eventually reduce throughput.
         env.setBufferTimeout(flushRate);
-/*
-        if (flinkBenchmarkParams.has("flink.checkpoint-interval")) {
-            // enable checkpointing for fault tolerance
-            env.enableCheckpointing(flinkBenchmarkParams.getLong("flink.checkpoint-interval", 1000));
-        }
-        */
-        // set default parallelism for all operators (recommended value: number of available worker CPU cores in the cluster (hosts * cores))
         env.setParallelism(parallelism);
-        // env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        env.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
+
+        DataStreamSource<String> socketSource = env.socketTextStream(dataGeneratorHost, dataGeneratorPort);
+
+        if (benchmarkUseCase.equals("KeyedWindowedAggregation")) {
+            keyedWindowedAggregationBenchmark(socketSource, conf);
+        } else {
+            throw new Exception("Please specify use-case name");
+        }
+
+        DataGenerator.generate(conf);
+        Thread.sleep(1000L);
+        env.execute();
+
+    }
 
 
-        DataStream<Tuple4<String, Long, Double, Double>> messageStream =
-                env.socketTextStream(dataGeneratorHost, dataGeneratorPort).map(new MapFunction<String, Tuple4<String, Long, Double, Double>>() {
+
+
+
+
+
+
+
+
+
+    private static void keyedWindowedAggregationBenchmark(DataStreamSource<String> socketTextStream, HashMap conf){
+        int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
+        int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
+        Long flushRate = new Long (conf.get("flush.rate").toString());
+
+        DataStream<Tuple5<String, Long, Double, Double,Long>> messageStream = socketTextStream.map(new MapFunction<String, Tuple5<String, Long, Double, Double,Long>>() {
                     @Override
-                    public Tuple4<String, Long, Double, Double> map(String s) throws Exception {
+                    public Tuple5<String, Long, Double, Double,Long> map(String s) throws Exception {
                         JSONObject obj = new JSONObject(s);
                         String geo = obj.getJSONObject("t").getString("geo");
                         Double price = obj.getJSONObject("m").getDouble("price");
-                        return new Tuple4<String, Long, Double, Double>(geo, System.currentTimeMillis() , price, price);
+                        Long ts = obj.has("ts") ? obj.getLong("ts"):System.currentTimeMillis();
+                        return new Tuple5<String, Long, Double, Double,Long>(geo, ts , price, price,1L);
                     }
                 });
 
+        DataStream<Tuple5<String, Long, Double, Double,Long>> aggregatedStream = messageStream.keyBy(0)
+                .timeWindow(Time.milliseconds(slideWindowLength), Time.milliseconds(slideWindowSlide)).
+                        reduce(new ReduceFunction<Tuple5<String, Long, Double, Double,Long>>() {
+                            @Override
+                            public Tuple5<String, Long, Double, Double,Long> reduce(Tuple5<String, Long, Double, Double,Long> t1, Tuple5<String, Long, Double, Double,Long> t2) throws Exception {
+                                Double maxPrice = Math.max(t1.f2, t2.f2);
+                                Double minPrice = Math.min(t1.f3, t2.f3);
+                                Long ts = Math.max(t1.f1, t2.f1);
+                                Long windowElements = t1.f4 + t2.f4;
+                                return new Tuple5<String, Long, Double, Double,Long>(t1.f0, ts, maxPrice, minPrice,windowElements);
+                            }
+                        });
 
-        // do some stuff with use case
 
-
-        DataStream<Tuple4<String, Long, Double, Double>> aggregatedStream = messageStream.keyBy(0).timeWindow(Time.milliseconds(slideWindowLength), Time.milliseconds(slideWindowSlide)).reduce(new ReduceFunction<Tuple4<String, Long, Double, Double>>() {
+        DataStream<Tuple5<String, Long, Double, Double,Long>> resultingStream = aggregatedStream.map(new MapFunction<Tuple5<String, Long, Double, Double,Long>, Tuple5<String, Long, Double, Double,Long>>() {
             @Override
-            public Tuple4<String, Long, Double, Double> reduce(Tuple4<String, Long, Double, Double> t1, Tuple4<String, Long, Double, Double> t2) throws Exception {
-                Double maxPrice = Math.max(t1.f2, t2.f2);
-                Double minPrice = Math.min(t1.f3, t2.f3);
-                Long ts = Math.max(t1.f1, t2.f1);
-                return new Tuple4<String, Long, Double, Double>(t1.f0, ts, maxPrice, minPrice);
-            }
-        });
-
-
-        // use case ends here
-
-
-        DataStream<Tuple4<String, Long, Double, Double>> resultingStream = aggregatedStream.map(new MapFunction<Tuple4<String, Long, Double, Double>, Tuple4<String, Long, Double, Double>>() {
-            @Override
-            public Tuple4<String, Long, Double, Double> map(Tuple4<String, Long, Double, Double> t1) throws Exception {
-                return new Tuple4<String, Long, Double, Double>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2, t1.f3);
+            public Tuple5<String, Long, Double, Double,Long> map(Tuple5<String, Long, Double, Double,Long> t1) throws Exception {
+                return new Tuple5<String, Long, Double, Double,Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2, t1.f3,t1.f4);
             }
         });
 
         String outputFile = conf.get("flink.output").toString();
-        resultingStream.addSink(new WriteSinkFunctionByMillis<Tuple4<String, Long, Double, Double>>(outputFile, new WriteFormatAsCsv(), flushRate));
-
-        Long benchmarkingCount = new Long(conf.get("benchmarking.count").toString());
-        Long warmupCount = new Long(conf.get("warmup.count").toString());
-        Long sleepTime = new Long(conf.get("datagenerator.sleep").toString());
-        Long blobSize = new Long(conf.get("datagenerator.blobsize").toString());
-
-        DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime,blobSize);
-        Thread.sleep(2000L);
-        env.execute();
-    }
+        resultingStream.addSink(new WriteSinkFunctionByMillis<Tuple5<String, Long, Double, Double,Long>>(outputFile, new WriteFormatAsCsv(), flushRate));
+        resultingStream.print();
 
 
-    private static Map<String, String> getFlinkConfs(Map conf) {
-        String kafkaBrokers = getKafkaBrokers(conf);
-        String zookeeperServers = getZookeeperServers(conf);
-
-        Map<String, String> flinkConfs = new HashMap<String, String>();
-        flinkConfs.put("topic", getKafkaTopic(conf));
-        flinkConfs.put("bootstrap.servers", kafkaBrokers);
-        flinkConfs.put("zookeeper.connect", zookeeperServers);
-        flinkConfs.put("group.id", "myGroup");
-
-        return flinkConfs;
-    }
-
-    private static String getZookeeperServers(Map conf) {
-        if (!conf.containsKey("zookeeper.servers")) {
-            throw new IllegalArgumentException("Not zookeeper servers found!");
-        }
-        return listOfStringToString((List<String>) conf.get("zookeeper.servers"), String.valueOf(conf.get("zookeeper.port")));
-    }
-
-    private static String getKafkaBrokers(Map conf) {
-        if (!conf.containsKey("kafka.brokers")) {
-            throw new IllegalArgumentException("No kafka brokers found!");
-        }
-        if (!conf.containsKey("kafka.port")) {
-            throw new IllegalArgumentException("No kafka port found!");
-        }
-        return listOfStringToString((List<String>) conf.get("kafka.brokers"), String.valueOf(conf.get("kafka.port")));
-    }
-
-    private static String getKafkaTopic(Map conf) {
-        if (!conf.containsKey("kafka.topic")) {
-            throw new IllegalArgumentException("No kafka topic found!");
-        }
-        return (String) conf.get("kafka.topic");
-    }
-
-
-    public static String listOfStringToString(List<String> list, String port) {
-        String val = "";
-        for (int i = 0; i < list.size(); i++) {
-            val += list.get(i) + ":" + port;
-            if (i < list.size() - 1) {
-                val += ",";
-            }
-        }
-        return val;
-    }
-
-
-}
-
-class MySink implements SinkFunction<Tuple4<String, Long, Double, Double>> {
-
-    private String outputPath;
-    private transient BufferedWriter bw = null;
-
-    public MySink(String outputPath) {
-        this.outputPath = outputPath;
-        try {
-            File file = new File(outputPath);
-            if (!file.exists()) {
-
-                file.getParentFile().mkdirs();
-
-            }
-            FileWriter fw = new FileWriter(file);
-            bw = new BufferedWriter(fw);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-    }
-
-    @Override
-    public void invoke(Tuple4<String, Long, Double, Double> tuple) throws Exception {
-        bw.write(tuple.f0 + "," + tuple.f1 + "," + tuple.f2 + "," + tuple.f3 + "\n");
-        bw.flush();
     }
 }
+
+

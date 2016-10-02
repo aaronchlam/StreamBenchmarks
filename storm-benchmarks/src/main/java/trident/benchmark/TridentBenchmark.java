@@ -45,72 +45,41 @@ import java.util.concurrent.TimeUnit;
 public class TridentBenchmark {
 
     public static void main(String[] args) throws Exception {
-//        if (args.length != 2) {
-  //          throw new Exception("2 arguments is needed: Config file path and running mode (local or cluster)");
-    //    }
         String confPath = args[0];
         String runningMode = args[1];
         YamlReader reader = new YamlReader(new FileReader(confPath));
         Object object = reader.read();
-        Map commonConfig = (Map) object;
+        HashMap commonConfig = (HashMap) object;
 
-       // int workers = new Integer(commonConfig.get("storm.workers").toString());
-//        int ackers = new Integer(commonConfig.get("storm.ackers").toString());
-  //      int cores = new Integer(commonConfig.get("process.cores").toString());
-        int parallelism = new Integer(commonConfig.get("parallelism.default").toString());
-        int slideWindowLength = new Integer(commonConfig.get("slidingwindow.length").toString());
-        int slideWindowSlide = new Integer(commonConfig.get("slidingwindow.slide").toString());
-
-        Integer dataGeneratorPort = new Integer(commonConfig.get("datasourcesocket.port").toString());
-        String dataGeneratorHost = commonConfig.get("datasourcesocket.host").toString();
-
-        Long benchmarkingCount = new Long(commonConfig.get("benchmarking.count").toString());
-        Long warmupCount = new Long(commonConfig.get("warmup.count").toString());
-        Long sleepTime = new Long(commonConfig.get("datagenerator.sleep").toString());
-        int tridentBatchSize = new Integer(commonConfig.get("trident.batchsize").toString());
-        String hdfsUrl = commonConfig.get("output.hdfs.url").toString();
-        String outputPath = commonConfig.get("trident.output").toString();
-	    Float fileRotationSize = Float.parseFloat(commonConfig.get("file.rotation.size").toString());
-        Long blobSize = new Long(commonConfig.get("datagenerator.blobsize").toString());
-
-        DataGenerator.generate(dataGeneratorPort, benchmarkingCount, warmupCount, sleepTime,blobSize);
+        DataGenerator.generate(commonConfig);
         Thread.sleep(1000);
 
 
-        // Storm can be run locally for testing purposes
         Config conf = new Config();
         if (runningMode.equals("cluster")) {
-            //conf.setNumWorkers(workers);
-            //conf.setNumAckers(workers+3);
-            StormSubmitter.submitTopologyWithProgressBar(args[2], conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost , dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide, outputPath,hdfsUrl,fileRotationSize ));
+            StormSubmitter.submitTopologyWithProgressBar(args[2], conf, keyedWindowedAggregation(commonConfig));
         } else {
             LocalCluster cluster = new LocalCluster();
-            cluster.submitTopology(args[2], conf, keyedWindowAggregations(new SocketBatchSpout(tridentBatchSize, dataGeneratorHost, dataGeneratorPort), parallelism, slideWindowLength, slideWindowSlide,outputPath,hdfsUrl,fileRotationSize));
+            cluster.submitTopology(args[2], conf, keyedWindowedAggregation(commonConfig));
 
         }
     }
 
-    public static StormTopology keyedWindowAggregations(IBatchSpout spout, int parallelism, int slideWindowLength, int slideWindowSlide, String outputPath, String hdfsUrl,float fileRotationSize) throws Exception {
+    public static StormTopology keyedWindowedAggregation(HashMap commonConfig) throws Exception {
+        Integer dataGeneratorPort = new Integer(commonConfig.get("datasourcesocket.port").toString());
+        String dataGeneratorHost = commonConfig.get("datasourcesocket.host").toString();
+        int tridentBatchSize = new Integer(commonConfig.get("trident.batchsize").toString());
+        String hdfsUrl = commonConfig.get("output.hdfs.url").toString();
+        String outputPath = commonConfig.get("trident.output").toString();
+        Float fileRotationSize = Float.parseFloat(commonConfig.get("file.rotation.size").toString());
+        int parallelism = new Integer(commonConfig.get("max.partitions").toString());
+        int slideWindowLength = new Integer(commonConfig.get("slidingwindow.length").toString());
+        int slideWindowSlide = new Integer(commonConfig.get("slidingwindow.slide").toString());
 
-        // A topology is a set of streams.
-        // A stream is a DAG of Spouts and Bolts.
-        // (In Storm there are Spouts (data producers) and Bolts (data processors).
-        // Spouts create Tuples and Bolts manipulate then and possibly emit new ones.)
 
-        // But in Trident we operate at a higher level.
-        // Bolts are created and connected automatically out of higher-level constructs.
-        // Also, Spouts are "batched".
+        IBatchSpout spout = new SocketBatchSpout(tridentBatchSize, dataGeneratorHost, dataGeneratorPort);
         TridentTopology topology = new TridentTopology();
-
-
-        // You can perform aggregations by grouping the stream and then applying an aggregation
-        // Note how each actor appears more than once. We are aggregating inside small batches (aka micro batches)
-        // This is useful for pre-processing before storing the result to databases
-      //  Aggregator groupedAgg = new GroupedAggregator(new MinMaxAggregator(), new Fields("geo"), new Fields("geo", "ts", "max_price", "min_price"), new Fields("geo", "ts", "max_price", "min_price").size());
-
-
-        Fields hdfsFields = new Fields("geo", "ts", "max_price", "min_price");
-
+        Fields hdfsFields = new Fields("geo", "ts", "max_price", "min_price", "window_elements");
         FileNameFormat fileNameFormat = new DefaultFileNameFormat()
                 .withPath(outputPath)
                 .withPrefix("trident")
@@ -129,38 +98,22 @@ public class TridentBenchmark {
 
         StateFactory factory = new HdfsStateFactory().withOptions(options);
 
-
-
         TridentState countState =
-        topology
-                .newStream("aggregation", spout)
-                .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price"))
-                .partitionBy(new Fields("geo")).parallelismHint(160)
-                .slidingWindow(new BaseWindowedBolt.Duration(slideWindowLength, TimeUnit.MILLISECONDS),
-                        new BaseWindowedBolt.Duration(slideWindowSlide, TimeUnit.MILLISECONDS),
-                        new InMemoryWindowsStoreFactory(),
-                        new Fields("geo", "ts", "max_price", "min_price"),
-                        new MinMaxAggregator(),
-                        new Fields("geo", "ts", "max_price", "min_price"))
-                .map(new FinalTS())
-                .partitionPersist(factory, hdfsFields, new HdfsUpdater(), new Fields());
-
-
-
-
-
-//                peek(new Consumer() {
-//                    @Override
-//                    public void accept(TridentTuple input) {
-//
-//                        System.out.println(input);
-//                    }
-//                });
-        // .each(new Fields("geo","ts","max_price","min_price"), new Print());
-
-
+                topology
+                        .newStream("aggregation", spout)
+                        .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price"))
+                        .partitionBy(new Fields("geo"))
+                        .slidingWindow(new BaseWindowedBolt.Duration(slideWindowLength, TimeUnit.MILLISECONDS),
+                                new BaseWindowedBolt.Duration(slideWindowSlide, TimeUnit.MILLISECONDS),
+                                new InMemoryWindowsStoreFactory(),
+                                new Fields("geo", "ts", "max_price", "min_price"),
+                                new MinMaxAggregator(),
+                                new Fields("geo", "ts", "max_price", "min_price", "window_elements"))
+                        .map(new FinalTS())
+                        .partitionPersist(factory, hdfsFields, new HdfsUpdater(), new Fields());
         return topology.build();
     }
+
 
 }
 
@@ -172,9 +125,11 @@ class SelectFields extends BaseFunction {
         JSONObject obj = new JSONObject(tuple.getString(0));
         String geo = obj.getJSONObject("t").getString("geo");
         Double price = obj.getJSONObject("m").getDouble("price");
+        Long ts = obj.has("ts") ? obj.getLong("ts") : System.currentTimeMillis();
+        System.out.println(obj.has("ts"));
         collector.emit(new Values(
                 geo,
-                System.currentTimeMillis() ,
+                ts,
                 price,
                 price
         ));
@@ -182,45 +137,7 @@ class SelectFields extends BaseFunction {
 }
 
 
-//class MinMaxAggregator extends BaseAggregator<MinMaxAggregator.State> {
-//
-//    class State {
-//        double max = 0.0;
-//        double min = 0.0;
-//        long ts = 0;
-//        String id = "";
-//    }
-//
-//    @Override
-//    public State init(Object batchId, TridentCollector collector) {
-//        return new State();
-//    }
-//
-//    @Override
-//    public void aggregate(State state, TridentTuple tuple, TridentCollector collector) {
-//        Double maxPrice = tuple.getDouble(2);
-//        Double minPrice = tuple.getDouble(3);
-//        Long ts = tuple.getLong(1);
-//        String id = tuple.getString(0);
-//        if (state.ts < ts) {
-//            state.ts = ts;
-//            state.id = id;
-//        }
-//        state.max = Math.max(state.max, maxPrice);
-//        state.min = Math.min(state.min, minPrice);
-//    }
-//
-//    @Override
-//    public void complete(State state, TridentCollector collector) {
-//        collector.emit(new Values(state.id, state.ts, state.max, state.min));
-//    }
-//
-//}
-
-
 class MinMaxAggregator extends BaseAggregator<Map<String, State>> {
-
-
     @Override
     public Map<String, State> init(Object o, TridentCollector tridentCollector) {
         return new HashMap<String, State>();
@@ -228,20 +145,21 @@ class MinMaxAggregator extends BaseAggregator<Map<String, State>> {
 
     @Override
     public void aggregate(Map<String, State> partitionState, TridentTuple tuple, TridentCollector tridentCollector) {
+
         String partition = tuple.getString(0);
+
         State state = partitionState.get(partition);
-        if (state == null){
+        if (state == null) {
             state = new State();
         }
 
         Double maxPrice = tuple.getDouble(2);
         Double minPrice = tuple.getDouble(3);
         Long ts = tuple.getLong(1);
-        String id = tuple.getString(0);
         if (state.ts < ts) {
             state.ts = ts;
-            state.id = id;
         }
+        state.window_elements = state.window_elements + 1;
         state.max = Math.max(state.max, maxPrice);
         state.min = Math.min(state.min, minPrice);
         partitionState.put(partition, state);
@@ -249,30 +167,32 @@ class MinMaxAggregator extends BaseAggregator<Map<String, State>> {
 
     @Override
     public void complete(Map<String, State> partitionState, TridentCollector tridentCollector) {
-        for(State state: partitionState.values()){
-            tridentCollector.emit(new Values(state.id, state.ts, state.max, state.min));
+        for (String partition : partitionState.keySet()) {
+            State state = partitionState.get(partition);
+            System.out.println(partition +" - "+ state.ts+ " - " + state.max+" - " + state.min+ " - "+state.window_elements);
+            tridentCollector.emit(new Values(partition, state.ts, state.max, state.min, state.window_elements));
         }
 
     }
+
 }
 
 class State {
     double max = Double.MIN_VALUE;
     double min = Double.MAX_VALUE;
     long ts = 0;
-    String id = "";
+    long window_elements = 0L;
 }
 
 class MyFileOutputter implements MapFunction {
     private File file;
 
-    public MyFileOutputter(String outputDir){
-        try{
+    public MyFileOutputter(String outputDir) {
+        try {
             String uniqueID = UUID.randomUUID().toString();
-            file = new File(outputDir+uniqueID+".csv");
+            file = new File(outputDir + uniqueID + ".csv");
             file.createNewFile();
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -280,29 +200,30 @@ class MyFileOutputter implements MapFunction {
 
     @Override
     public Values execute(TridentTuple t) {
-        try{
+        try {
             FileWriter fileWriter = new FileWriter(file);
             fileWriter.write(t.getString(0) + "," + t.getLong(1) + "," + t.getDouble(2) + "," + t.getDouble(3));
             fileWriter.flush();
             fileWriter.close();
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return new Values(t);
     }
 }
+
 class FinalTS implements MapFunction {
 
     @Override
     public Values execute(TridentTuple tuple) {
         Long ts = tuple.getLong(1);
-        Long difference = System.currentTimeMillis()  - ts;
+        Long difference = System.currentTimeMillis() - ts;
         return new Values(
                 tuple.getString(0),
                 difference,
                 tuple.getDouble(2),
-                tuple.getDouble(3)
+                tuple.getDouble(3),
+                tuple.getLong(4)
         );
 
     }
