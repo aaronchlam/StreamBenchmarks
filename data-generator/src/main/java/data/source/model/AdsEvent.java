@@ -28,7 +28,7 @@ public class AdsEvent {
     DataFactory df = new DataFactory();
     private List<String> osList = Arrays.asList("iOS", "Android", "Blackberry", "WindowsPhone");
     private List<String> phoneList = Arrays.asList("iPhone6", "iPhone6S", "Blackberry", "Samsung-Edge", "LG");
-    private List<String> geoList = Arrays.asList("AF","AX", "AL","DZ","AS","AD","AO","AI","AQ","AG","AR", "AM",
+    private String[] geoList = {"AF","AX", "AL","DZ","AS","AD","AO","AI","AQ","AG","AR", "AM",
             "AW","AC","AU","AT","AZ","BS","BH","BB","BD","BY","BE","BZ", "BJ","BM","BT","BW","BO","BA","BV","BR",
             "IO","BN","BG","BF","BI","KH","CM","CA","CV","KY","CF","TD","CL","CN","CX","CC","CO","KM","CG","CD",
             "CK","CR","CI","HR", "CU","CY","CZ","CS","DK","DJ","DM","DO","TP","EC","EG","SV","GQ","ER","EE","ET",
@@ -40,7 +40,7 @@ public class AdsEvent {
             "PK","PW","PS","PA","PG","PY","PE","PH","PN","PL","PT","PR","QA","RE","RO","RU","RW","GS","KN","LC",
             "VC", "WS","SM","ST","SA","SN","RS","YU","SC","SL","SG","SI","SK","SB","SO","ZA","ES","LK","SH","PM",
             "SD","SR","SJ","SZ","SE","CH","SY","TW","TJ","TZ","TH","TG","TK","TO","TT","TN", "TR","TM","TC","TV",
-            "UG","UA","AE","UK","US","UM","UY","SU","UZ","VU","VA","VE","VN","VG","VI","WF","EH","YE","ZM","ZR","ZW");
+            "UG","UA","AE","UK","US","UM","UY","SU","UZ","VU","VA","VE","VN","VG","VI","WF","EH","YE","ZM","ZR","ZW"};
 
     public JSONObject generateJson(boolean isDummy) {
         //date
