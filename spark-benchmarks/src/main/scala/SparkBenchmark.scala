@@ -8,6 +8,7 @@
 package spark.benchmark
 
 import java.io.FileReader
+import java.util
 
 import com.esotericsoftware.yamlbeans.YamlReader
 import data.source.socket.DataGenerator
@@ -16,6 +17,7 @@ import org.apache.spark.streaming.{Milliseconds, Minutes, Seconds, StreamingCont
 import org.json.JSONObject
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.streaming.dstream.DStream
+import scala.collection.JavaConversions._
 
 
 object SparkBenchmark {
@@ -33,25 +35,28 @@ object SparkBenchmark {
     val rootLogger = Logger.getRootLogger()
     rootLogger.setLevel(Level.ERROR)
 
-    val dataGeneratorHost = commonConfig.get("datasourcesocket.host").toString()
-    val dataGeneratorPort = commonConfig.get("datasourcesocket.port").toString().toInt
-    val socketDataSource = ssc.receiverStream(new SocketReceiver(dataGeneratorHost, dataGeneratorPort))
 
     if (commonConfig.get("benchmarking.usecase").toString == "KeyedWindowedAggregation")
-      keyedWindowedAggregationBenchmark(socketDataSource, commonConfig);
+      keyedWindowedAggregationBenchmark(ssc, commonConfig);
 
 
-    DataGenerator.generate(commonConfig);
-    Thread.sleep(1000L)
 
     ssc.start()
     ssc.awaitTermination()
   }
 
 
-  def keyedWindowedAggregationBenchmark(socketDataSource: DStream[String], commonConfig: java.util.HashMap[String, Any]) = {
+  def keyedWindowedAggregationBenchmark(ssc: StreamingContext, commonConfig: java.util.HashMap[String, Any]) = {
     val slidingWindowLength = commonConfig.get("slidingwindow.length").toString().toInt
     val slidingWindowSlide = commonConfig.get("slidingwindow.slide").toString().toInt
+    val hosts: util.ArrayList[String] = commonConfig.get("datasourcesocket.hosts").asInstanceOf[util.ArrayList[String]]
+    val port = commonConfig.get("datasourcesocket.port").toString().toInt
+    var socketDataSource:DStream[String] = null;
+
+    for (  host <- hosts){
+      val socketDataSource_i:DStream[String] = ssc.receiverStream(new SocketReceiver(host, port))
+      socketDataSource = if (socketDataSource == null) socketDataSource_i else socketDataSource.union(socketDataSource_i)
+    }
 
 
     val keyedStream = socketDataSource.map(s => {

@@ -5,14 +5,12 @@
 package flink.benchmark;
 
 import com.esotericsoftware.yamlbeans.YamlReader;
-import data.source.socket.DataGenerator;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.WriteFormatAsCsv;
 import org.apache.flink.streaming.api.functions.sink.WriteSinkFunctionByMillis;
@@ -22,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
@@ -44,8 +43,6 @@ public class FlinkBenchmark {
         HashMap conf = (HashMap) object;
 
         String benchmarkUseCase = conf.get("benchmarking.usecase").toString();
-        String dataGeneratorHost = conf.get("datasourcesocket.host").toString();
-        Integer dataGeneratorPort = new Integer(conf.get("datasourcesocket.port").toString());
 	    Long flushRate = new Long (conf.get("flush.rate").toString());
         int parallelism =  new Integer(conf.get("parallelism.default").toString());
 
@@ -56,16 +53,13 @@ public class FlinkBenchmark {
         env.setParallelism(parallelism);
         env.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
 
-        DataStreamSource<String> socketSource = env.socketTextStream(dataGeneratorHost, dataGeneratorPort);
 
         if (benchmarkUseCase.equals("KeyedWindowedAggregation")) {
-            keyedWindowedAggregationBenchmark(socketSource, conf);
+            keyedWindowedAggregationBenchmark(env, conf);
         } else {
             throw new Exception("Please specify use-case name");
         }
 
-        DataGenerator.generate(conf);
-        Thread.sleep(1000L);
         env.execute();
 
     }
@@ -80,12 +74,20 @@ public class FlinkBenchmark {
 
 
 
-    private static void keyedWindowedAggregationBenchmark(DataStreamSource<String> socketTextStream, HashMap conf){
+    private static void keyedWindowedAggregationBenchmark(StreamExecutionEnvironment env, HashMap conf){
         int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
         Long flushRate = new Long (conf.get("flush.rate").toString());
+        ArrayList<String> hosts = (ArrayList<String>) conf.get("datasourcesocket.hosts");
+        Integer port = new Integer(conf.get("datasourcesocket.port").toString());
+        DataStream<String> socketSource = null;
 
-        DataStream<Tuple5<String, Long, Double, Double,Long>> messageStream = socketTextStream.map(new MapFunction<String, Tuple5<String, Long, Double, Double,Long>>() {
+        for (String host : hosts){
+            DataStream<String> socketSource_i = env.socketTextStream(host, port);
+            socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);
+        }
+
+        DataStream<Tuple5<String, Long, Double, Double,Long>> messageStream = socketSource.map(new MapFunction<String, Tuple5<String, Long, Double, Double,Long>>() {
                     @Override
                     public Tuple5<String, Long, Double, Double,Long> map(String s) throws Exception {
                         JSONObject obj = new JSONObject(s);

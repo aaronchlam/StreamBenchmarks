@@ -2,7 +2,6 @@ package trident.benchmark;
 
 
 import com.esotericsoftware.yamlbeans.YamlReader;
-import data.source.socket.DataGenerator;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
@@ -17,6 +16,7 @@ import org.apache.storm.hdfs.trident.format.RecordFormat;
 import org.apache.storm.hdfs.trident.rotation.FileRotationPolicy;
 import org.apache.storm.hdfs.trident.rotation.FileSizeRotationPolicy;
 import org.apache.storm.topology.base.BaseWindowedBolt;
+import org.apache.storm.trident.Stream;
 import org.apache.storm.trident.TridentState;
 import org.apache.storm.trident.TridentTopology;
 import org.apache.storm.trident.operation.BaseAggregator;
@@ -34,6 +34,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -51,8 +52,6 @@ public class TridentBenchmark {
         Object object = reader.read();
         HashMap commonConfig = (HashMap) object;
 
-        DataGenerator.generate(commonConfig);
-        Thread.sleep(1000);
 
 
         Config conf = new Config();
@@ -66,8 +65,8 @@ public class TridentBenchmark {
     }
 
     public static StormTopology keyedWindowedAggregation(HashMap commonConfig) throws Exception {
-        Integer dataGeneratorPort = new Integer(commonConfig.get("datasourcesocket.port").toString());
-        String dataGeneratorHost = commonConfig.get("datasourcesocket.host").toString();
+        Integer port = new Integer(commonConfig.get("datasourcesocket.port").toString());
+        ArrayList<String> hosts = (ArrayList<String>) commonConfig.get("datasourcesocket.hosts");
         int tridentBatchSize = new Integer(commonConfig.get("trident.batchsize").toString());
         String hdfsUrl = commonConfig.get("output.hdfs.url").toString();
         String outputPath = commonConfig.get("trident.output").toString();
@@ -77,7 +76,6 @@ public class TridentBenchmark {
         int slideWindowSlide = new Integer(commonConfig.get("slidingwindow.slide").toString());
 
 
-        IBatchSpout spout = new SocketBatchSpout(tridentBatchSize, dataGeneratorHost, dataGeneratorPort);
         TridentTopology topology = new TridentTopology();
         Fields hdfsFields = new Fields("geo", "ts", "max_price", "min_price", "window_elements");
         FileNameFormat fileNameFormat = new DefaultFileNameFormat()
@@ -98,9 +96,19 @@ public class TridentBenchmark {
 
         StateFactory factory = new HdfsStateFactory().withOptions(options);
 
+        ArrayList<Stream> streams = new ArrayList<>();
+        for(int i = 0 ; i < hosts.size(); i++){
+            String host = hosts.get(i);
+            IBatchSpout spout = new SocketBatchSpout(tridentBatchSize, host, port);
+            Stream socketStream_i = topology.newStream("aggregation"+i,spout);
+            streams.add(socketStream_i);
+        }
+
+
+
         TridentState countState =
                 topology
-                        .newStream("aggregation", spout)
+                        .merge(streams)
                         .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price"))
                         .partitionBy(new Fields("geo"))
                         .slidingWindow(new BaseWindowedBolt.Duration(slideWindowLength, TimeUnit.MILLISECONDS),

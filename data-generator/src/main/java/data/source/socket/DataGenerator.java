@@ -1,14 +1,20 @@
 package data.source.socket;
 
+import com.esotericsoftware.yamlbeans.YamlReader;
 import data.source.model.AdsEvent;
 import org.json.JSONObject;
 
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.HashMap;
+import java.util.logging.FileHandler;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 /**
  * Created by jeka01 on 02/09/16.
@@ -22,6 +28,8 @@ public class DataGenerator extends Thread {
     private boolean isRandomGeo;
 
     private boolean putTs;
+    private Logger logger = Logger.getLogger("MyLog");
+    private FileHandler fh;
 
     private DataGenerator( HashMap conf) throws IOException {
         this.benchmarkCount = new Long(conf.get("benchmarking.count").toString());
@@ -33,6 +41,12 @@ public class DataGenerator extends Thread {
         Integer port = new Integer(conf.get("datasourcesocket.port").toString());
         serverSocket = new ServerSocket(port);
         serverSocket.setSoTimeout(20000);
+        String logFile = conf.get("datasource.logs").toString();
+        fh = new FileHandler(logFile);
+        logger.addHandler(fh);
+        SimpleFormatter formatter = new SimpleFormatter();
+        fh.setFormatter(formatter);
+
     }
 
     public void run() {
@@ -56,8 +70,7 @@ public class DataGenerator extends Thread {
                         e.printStackTrace();
                     }
                 }
-
-                System.out.println("---WARMUP BENCHMARK ENDED----");
+                logger.info("WARMUP BENCHMARK ENDED on " + InetAddress.getLocalHost().getHostName());
                 long currTime = System.currentTimeMillis();
                 long currIndex = 0L;
                 long thoughput = 0L;
@@ -66,7 +79,6 @@ public class DataGenerator extends Thread {
                     if (currTime + 1000L < System.currentTimeMillis()) {
                         currTime = System.currentTimeMillis();
                         thoughput = thoughput + (i - currIndex);
-                     //   System.out.println("Throughput is:" + (i - currIndex));
                         currIndex = i;
                         throughputCount++;
                     }
@@ -76,16 +88,13 @@ public class DataGenerator extends Thread {
                         for (int b = 0; b < blobSize && i < benchmarkCount; b++, i++) {
                             JSONObject obj = dg.generateJson(false);
                             out.println(obj.toString());
-                           // System.out.println("DG-" + obj.getJSONObject("t").getString("geo"));
-                            System.out.println(obj.getJSONObject("t").getString("geo")+ " - " + obj.getJSONObject("m").getString("price"));
-
                         }
-                        //                      System.out.println(obj.toString() +" gone");
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
-                System.out.println("\n \n ---CURRENT BENCHMARK ENDED---- \n \n Throughtput is " + (thoughput / throughputCount));
+                logger.info("\n \n ---CURRENT BENCHMARK ENDED---- on " + InetAddress.getLocalHost().getHostName() +
+                        " \n \n Throughtput is " + (thoughput / throughputCount));
             } catch (SocketTimeoutException s) {
                 System.out.println("Socket timed out!");
                 break;
@@ -97,7 +106,11 @@ public class DataGenerator extends Thread {
     }
 
 
-    public static void generate(HashMap conf) throws Exception {
+    public static void main(String[] args) throws Exception {
+        String confFilePath = args[0];
+        YamlReader reader = new YamlReader(new FileReader(confFilePath));
+        Object object = reader.read();
+        HashMap conf = (HashMap) object;
 
         try {
             Thread t = new DataGenerator(conf);
