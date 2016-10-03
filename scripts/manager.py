@@ -22,6 +22,8 @@ flink_output_dir = ''
 storm_output_dir = ''
 kafka_output_dir = ''
 conf_file = '/share/hadoop/jkarimov/workDir/StreamBenchmarks/conf/benchmarkConf.yaml'
+datagenerator_hosts = [ ]
+datagenerator_port = 0
 
 def start_flink():
 	sp.call([flink_home + "bin/start-cluster.sh"])
@@ -125,7 +127,7 @@ def concat_files_in_dir(input_dir, output_dir):
 def parse_conf_file():
 	with open(conf_file) as f:
 		content = f.readlines()
-	for line in content:
+	for index,line in enumerate(content):
 		if 'flink.output' in line:
 			global flink_output_dir
 			flink_output_dir =  line.split(None)[1].replace("\"","")
@@ -138,9 +140,37 @@ def parse_conf_file():
 		elif 'kafka.output' in line:
 			global kafka_output_dir
 			kafka_output_dir =  line.split(None)[1].replace("\"","")
+		elif 'datasourcesocket.port' in line:
+			global datagenerator_port
+			datagenerator_port = line.split(None)[1].replace("\"","")
+		elif 'datasourcesocket.hosts' in line:
+			global datagenerator_hosts
+			tempInd = index + 1
+			while '-' in content[tempInd]:
+				datagenerator_hosts.append( content[tempInd].split(None)[1].replace("\"",""))
+				tempInd = tempInd + 1
+
+
+def start_data_generators():
+	data_generator_instance_script = '\'' + 'java -cp ' + project_dir + 'data-generator/target/data-generator-0.1.0.jar data.source.socket.DataGenerator ' + project_dir + 'conf/benchmarkConf.yaml' + '\''
+	
+	global datagenerator_hosts
+	print (data_generator_instance_script)
+	for host in datagenerator_hosts:
+		print(host)
+		sp.Popen (["ssh", host.strip() ,  '\'' + data_generator_instance_script + '\''  ],stdout=sp.PIPE,stderr=sp.STDOUT)
+		time.sleep(2)
+		print('datagenerator ' + host.strip() + ' started')
+	print('data generators started')
+
+
+def start_data_generator():
+	sp.call(['java','-cp', project_dir + 'data-generator/target/data-generator-0.1.0.jar', 'data.source.socket.DataGenerator', project_dir + 'conf/benchmarkConf.yaml' ])
+
 
 
 parse_conf_file()
+print(datagenerator_hosts)
 if(len(sys.argv[1:]) == 1):
 	arg = sys.argv[1]
 	if (arg == "start-flink"):
@@ -169,6 +199,10 @@ if(len(sys.argv[1:]) == 1):
 		concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/spark/*/*', '/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/results/tempfile.csv')
 	elif(arg == "concat-trident"):
 		 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/trident/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/results/tridentFile.csv')
+	elif(arg == "start-datagenerators"):
+		start_data_generators()
+	elif(arg == "start-datagenerator"):
+		start_data_generator()
 elif(len(sys.argv[1:]) == 2):
 	arg1 = sys.argv[1]	
 	arg2 = sys.argv[2]

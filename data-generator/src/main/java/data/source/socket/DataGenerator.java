@@ -40,7 +40,7 @@ public class DataGenerator extends Thread {
         this.putTs = new Boolean(conf.get("datagenerator.ts").toString());
         Integer port = new Integer(conf.get("datasourcesocket.port").toString());
         serverSocket = new ServerSocket(port);
-        serverSocket.setSoTimeout(20000);
+        serverSocket.setSoTimeout(900000);
         String logFile = conf.get("datasource.logs").toString();
         fh = new FileHandler(logFile);
         logger.addHandler(fh);
@@ -81,7 +81,9 @@ public class DataGenerator extends Thread {
                         thoughput = thoughput + (i - currIndex);
                         currIndex = i;
                         throughputCount++;
-                    }
+			logger.info("current thoguhtput is "+ (thoughput / throughputCount) + " on machine " + InetAddress.getLocalHost().getHostName() );
+                	System.out.println("current thoguhtput is "+ (thoughput / throughputCount) + " on machine " + InetAddress.getLocalHost().getHostName() );
+		    }
                     try {
                         if (sleepTime != 0)
                             Thread.sleep(sleepTime);
@@ -94,6 +96,8 @@ public class DataGenerator extends Thread {
                     }
                 }
                 logger.info("\n \n ---CURRENT BENCHMARK ENDED---- on " + InetAddress.getLocalHost().getHostName() +
+                        " \n \n Throughtput is " + (thoughput / throughputCount));
+		System.out.println("\n \n ---CURRENT BENCHMARK ENDED---- on " + InetAddress.getLocalHost().getHostName() +
                         " \n \n Throughtput is " + (thoughput / throughputCount));
             } catch (SocketTimeoutException s) {
                 System.out.println("Socket timed out!");

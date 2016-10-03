@@ -81,7 +81,7 @@ public class FlinkBenchmark {
         ArrayList<String> hosts = (ArrayList<String>) conf.get("datasourcesocket.hosts");
         Integer port = new Integer(conf.get("datasourcesocket.port").toString());
         DataStream<String> socketSource = null;
-
+	
         for (String host : hosts){
             DataStream<String> socketSource_i = env.socketTextStream(host, port);
             socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);

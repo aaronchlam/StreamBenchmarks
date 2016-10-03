@@ -80,7 +80,7 @@ object SparkBenchmark {
 
     val outputFile = commonConfig.get("spark.output").toString
     resultStream.saveAsTextFiles(outputFile);
-    resultStream.print();
+   // resultStream.print();
 
   }
 }
