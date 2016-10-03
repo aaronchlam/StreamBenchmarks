@@ -31,7 +31,7 @@ public class DataGenerator extends Thread {
     private Logger logger = Logger.getLogger("MyLog");
     private FileHandler fh;
 
-    private DataGenerator( HashMap conf) throws IOException {
+    private DataGenerator(HashMap conf) throws IOException {
         this.benchmarkCount = new Long(conf.get("benchmarking.count").toString());
         this.warmupCount = new Long(conf.get("warmup.count").toString());
         this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
@@ -50,7 +50,7 @@ public class DataGenerator extends Thread {
     }
 
     public void run() {
-        AdsEvent dg = new AdsEvent(isRandomGeo,putTs);
+        AdsEvent dg = new AdsEvent(isRandomGeo, putTs);
         while (true) {
             try {
                 System.out.println("Waiting for client on port " + serverSocket.getLocalPort() + "...");
@@ -81,9 +81,9 @@ public class DataGenerator extends Thread {
                         thoughput = thoughput + (i - currIndex);
                         currIndex = i;
                         throughputCount++;
-			logger.info("current thoguhtput is "+ (thoughput / throughputCount) + " on machine " + InetAddress.getLocalHost().getHostName() );
-                	System.out.println("current thoguhtput is "+ (thoughput / throughputCount) + " on machine " + InetAddress.getLocalHost().getHostName() );
-		    }
+                        logger.info("current thoguhtput is " + (thoughput / throughputCount) + " on machine " + InetAddress.getLocalHost().getHostName());
+                        //System.out.println("current thoguhtput is "+ (thoughput / throughputCount) + " on machine " + InetAddress.getLocalHost().getHostName() );
+                    }
                     try {
                         if (sleepTime != 0)
                             Thread.sleep(sleepTime);
@@ -97,8 +97,8 @@ public class DataGenerator extends Thread {
                 }
                 logger.info("\n \n ---CURRENT BENCHMARK ENDED---- on " + InetAddress.getLocalHost().getHostName() +
                         " \n \n Throughtput is " + (thoughput / throughputCount));
-		System.out.println("\n \n ---CURRENT BENCHMARK ENDED---- on " + InetAddress.getLocalHost().getHostName() +
-                        " \n \n Throughtput is " + (thoughput / throughputCount));
+                //System.out.println("\n \n ---CURRENT BENCHMARK ENDED---- on " + InetAddress.getLocalHost().getHostName() +
+                //              " \n \n Throughtput is " + (thoughput / throughputCount));
             } catch (SocketTimeoutException s) {
                 System.out.println("Socket timed out!");
                 break;
@@ -123,7 +123,6 @@ public class DataGenerator extends Thread {
             e.printStackTrace();
         }
     }
-
 
 
 }

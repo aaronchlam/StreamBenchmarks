@@ -19,10 +19,7 @@ import org.apache.storm.topology.base.BaseWindowedBolt;
 import org.apache.storm.trident.Stream;
 import org.apache.storm.trident.TridentState;
 import org.apache.storm.trident.TridentTopology;
-import org.apache.storm.trident.operation.BaseAggregator;
-import org.apache.storm.trident.operation.BaseFunction;
-import org.apache.storm.trident.operation.MapFunction;
-import org.apache.storm.trident.operation.TridentCollector;
+import org.apache.storm.trident.operation.*;
 import org.apache.storm.trident.spout.IBatchSpout;
 import org.apache.storm.trident.state.StateFactory;
 import org.apache.storm.trident.tuple.TridentTuple;
@@ -53,18 +50,92 @@ public class TridentBenchmark {
         HashMap commonConfig = (HashMap) object;
 
 
-
         Config conf = new Config();
+        String usecase = commonConfig.get("benchmarking.usecase").toString();
         if (runningMode.equals("cluster")) {
-            StormSubmitter.submitTopologyWithProgressBar(args[2], conf, keyedWindowedAggregation(commonConfig));
+            if (usecase.equals("KeyedWindowedAggregation"))
+                StormSubmitter.submitTopologyWithProgressBar(args[2], conf, keyedWindowedAggregation(commonConfig));
+            else if(usecase.equals("WindowedJoin"))
+                StormSubmitter.submitTopologyWithProgressBar(args[2], conf, windowedJoin(commonConfig));
+
         } else {
             LocalCluster cluster = new LocalCluster();
-            cluster.submitTopology(args[2], conf, keyedWindowedAggregation(commonConfig));
+            if (usecase.equals("KeyedWindowedAggregation"))
+                cluster.submitTopology(args[2], conf, keyedWindowedAggregation(commonConfig));
+            else if(usecase.equals("WindowedJoin"))
+                cluster.submitTopology(args[2], conf, windowedJoin(commonConfig));
 
         }
     }
 
-    public static StormTopology keyedWindowedAggregation(HashMap commonConfig) throws Exception {
+
+    private static StormTopology windowedJoin(HashMap commonConfig) throws Exception {
+        Integer port = new Integer(commonConfig.get("datasourcesocket.port").toString());
+        ArrayList<String> hosts = (ArrayList<String>) commonConfig.get("datasourcesocket.hosts");
+        int tridentBatchSize = new Integer(commonConfig.get("trident.batchsize").toString());
+        String hdfsUrl = commonConfig.get("output.hdfs.url").toString();
+        String outputPath = commonConfig.get("trident.output").toString();
+        Float fileRotationSize = Float.parseFloat(commonConfig.get("file.rotation.size").toString());
+        int parallelism = new Integer(commonConfig.get("max.partitions").toString());
+        int slideWindowLength = new Integer(commonConfig.get("slidingwindow.length").toString());
+        int slideWindowSlide = new Integer(commonConfig.get("slidingwindow.slide").toString());
+        TridentTopology topology = new TridentTopology();
+        Fields hdfsFields = new Fields("geo", "ts", "max_price", "min_price", "window_elements");
+        FileNameFormat fileNameFormat = new DefaultFileNameFormat()
+                .withPath(outputPath)
+                .withPrefix("trident")
+                .withExtension(".csv");
+
+        RecordFormat recordFormat = new DelimitedRecordFormat()
+                .withFields(hdfsFields);
+
+        FileRotationPolicy rotationPolicy = new FileSizeRotationPolicy(fileRotationSize, FileSizeRotationPolicy.Units.KB);
+
+        HdfsState.Options options = new HdfsState.HdfsFileOptions()
+                .withFileNameFormat(fileNameFormat)
+                .withRecordFormat(recordFormat)
+                .withRotationPolicy(rotationPolicy)
+                .withFsUrl(hdfsUrl);
+
+        StateFactory factory = new HdfsStateFactory().withOptions(options);
+
+        ArrayList<Stream> joinStreamLeft = new ArrayList<>();
+        ArrayList<Stream> joinStreamRight = new ArrayList<>();
+
+        for (int i = 0; i < hosts.size() / 2; i++) {
+            String host = hosts.get(i);
+            IBatchSpout spout = new SocketBatchSpout(tridentBatchSize, host, port);
+            Stream socketStream_i = topology.newStream("aggregation" + i, spout);
+            joinStreamLeft.add(socketStream_i);
+        }
+        for (int i = hosts.size() / 2; i < hosts.size(); i++) {
+            String host = hosts.get(i);
+            IBatchSpout spout = new SocketBatchSpout(tridentBatchSize, host, port);
+            Stream socketStream_i = topology.newStream("aggregation" + i, spout);
+            joinStreamRight.add(socketStream_i);
+        }
+
+        topology.merge(joinStreamLeft)
+                .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price"))
+                .slidingWindow(new BaseWindowedBolt.Duration(slideWindowLength, TimeUnit.MILLISECONDS),
+                        new BaseWindowedBolt.Duration(slideWindowSlide, TimeUnit.MILLISECONDS),
+                        new InMemoryWindowsStoreFactory(),
+                        new Fields("geo", "ts", "max_price", "min_price"),
+                        null,
+                        new Fields("geo", "ts", "max_price", "min_price", "window_elements"))
+                .peek(new Consumer() {
+                    @Override
+                    public void accept(TridentTuple tridentTuple) {
+                        System.out.println(tridentTuple.getString(0));
+                    }
+                });
+
+
+        return topology.build();
+
+    }
+
+    private static StormTopology keyedWindowedAggregation(HashMap commonConfig) throws Exception {
         Integer port = new Integer(commonConfig.get("datasourcesocket.port").toString());
         ArrayList<String> hosts = (ArrayList<String>) commonConfig.get("datasourcesocket.hosts");
         int tridentBatchSize = new Integer(commonConfig.get("trident.batchsize").toString());
@@ -97,13 +168,12 @@ public class TridentBenchmark {
         StateFactory factory = new HdfsStateFactory().withOptions(options);
 
         ArrayList<Stream> streams = new ArrayList<>();
-        for(int i = 0 ; i < hosts.size(); i++){
+        for (int i = 0; i < hosts.size(); i++) {
             String host = hosts.get(i);
             IBatchSpout spout = new SocketBatchSpout(tridentBatchSize, host, port);
-            Stream socketStream_i = topology.newStream("aggregation"+i,spout);
+            Stream socketStream_i = topology.newStream("aggregation" + i, spout);
             streams.add(socketStream_i);
         }
-
 
 
         TridentState countState =
@@ -134,7 +204,7 @@ class SelectFields extends BaseFunction {
         String geo = obj.getJSONObject("t").getString("geo");
         Double price = obj.getJSONObject("m").getDouble("price");
         Long ts = obj.has("ts") ? obj.getLong("ts") : System.currentTimeMillis();
-        System.out.println(obj.has("ts"));
+       // System.out.println(obj.has("ts"));
         collector.emit(new Values(
                 geo,
                 ts,
@@ -177,7 +247,7 @@ class MinMaxAggregator extends BaseAggregator<Map<String, State>> {
     public void complete(Map<String, State> partitionState, TridentCollector tridentCollector) {
         for (String partition : partitionState.keySet()) {
             State state = partitionState.get(partition);
-            System.out.println(partition +" - "+ state.ts+ " - " + state.max+" - " + state.min+ " - "+state.window_elements);
+           // System.out.println(partition + " - " + state.ts + " - " + state.max + " - " + state.min + " - " + state.window_elements);
             tridentCollector.emit(new Values(partition, state.ts, state.max, state.min, state.window_elements));
         }
 
