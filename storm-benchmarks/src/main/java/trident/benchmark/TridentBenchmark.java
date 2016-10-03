@@ -19,9 +19,14 @@ import org.apache.storm.topology.base.BaseWindowedBolt;
 import org.apache.storm.trident.Stream;
 import org.apache.storm.trident.TridentState;
 import org.apache.storm.trident.TridentTopology;
-import org.apache.storm.trident.operation.*;
+import org.apache.storm.trident.operation.BaseAggregator;
+import org.apache.storm.trident.operation.BaseFunction;
+import org.apache.storm.trident.operation.MapFunction;
+import org.apache.storm.trident.operation.TridentCollector;
 import org.apache.storm.trident.spout.IBatchSpout;
+import org.apache.storm.trident.state.BaseStateUpdater;
 import org.apache.storm.trident.state.StateFactory;
+import org.apache.storm.trident.testing.MemoryMapState;
 import org.apache.storm.trident.tuple.TridentTuple;
 import org.apache.storm.trident.windowing.InMemoryWindowsStoreFactory;
 import org.apache.storm.tuple.Fields;
@@ -31,10 +36,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -121,14 +123,11 @@ public class TridentBenchmark {
                         new BaseWindowedBolt.Duration(slideWindowSlide, TimeUnit.MILLISECONDS),
                         new InMemoryWindowsStoreFactory(),
                         new Fields("geo", "ts", "max_price", "min_price"),
-                        null,
+                        new MinMaxAggregator(),
                         new Fields("geo", "ts", "max_price", "min_price", "window_elements"))
-                .peek(new Consumer() {
-                    @Override
-                    public void accept(TridentTuple tridentTuple) {
-                        System.out.println(tridentTuple.getString(0));
-                    }
-                });
+        .partitionPersist(new MemoryMapState.Factory(),
+                new Fields("geo", "ts", "max_price", "min_price", "window_elements"),
+                new WindowUpdater());
 
 
         return topology.build();
@@ -185,7 +184,7 @@ public class TridentBenchmark {
                                 new BaseWindowedBolt.Duration(slideWindowSlide, TimeUnit.MILLISECONDS),
                                 new InMemoryWindowsStoreFactory(),
                                 new Fields("geo", "ts", "max_price", "min_price"),
-                                new MinMaxAggregator(),
+                                null,
                                 new Fields("geo", "ts", "max_price", "min_price", "window_elements"))
                         .map(new FinalTS())
                         .partitionPersist(factory, hdfsFields, new HdfsUpdater(), new Fields());
@@ -307,3 +306,18 @@ class FinalTS implements MapFunction {
     }
 }
 
+class WindowUpdater extends BaseStateUpdater<MemoryMapState<TridentTuple>> {
+
+
+    @Override
+    public void updateState(MemoryMapState<TridentTuple> mapState, List<TridentTuple> list, TridentCollector tridentCollector) {
+        List<Object> geos = new ArrayList<Object>();
+        for(TridentTuple tp : list){
+            geos.add(tp.getString(0));
+            //System.out.println(tp.getString(0));
+        }
+        Iterator dd =  mapState.getTuples();
+        mapState.multiPut(Arrays.asList(geos),list);
+
+    }
+}
