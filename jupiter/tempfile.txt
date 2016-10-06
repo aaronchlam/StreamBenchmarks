@@ -1,0 +1,167 @@
+## from pandas import DataFrame, read_csv
+
+# General syntax to import a library but no functions:
+##import (library) as (give the library a nickname/alias)
+import matplotlib.pyplot as plt
+import pandas as pd #this is how I usually import pandas
+import sys #only needed to determine Python version number
+import matplotlib #only needed to determine Matplotlib version number
+import glob
+import numpy as np
+# def combineFiles( inputDir,outputFile ):
+#     read_files = glob.glob(inputDir)
+#     with open(outputFile, "wb") as outfile:
+#         for f in read_files:
+#             with open(f, "rb") as infile:
+#                 outfile.write(infile.read())
+#     return
+
+def prunDataFrame(dataframe):
+    dataframe = dataframe[(dataframe['mx'] > 0) & (dataframe['mn'] > 0)  ]
+    dataframe = dataframe.drop('geo', 1)
+    dataframe = dataframe.drop('mx', 1)
+    dataframe = dataframe.drop('mn', 1)
+    dataframe = dataframe[['latency','wc']].apply(pd.to_numeric)
+   # dataframe = dataframe.drop('window', 1)
+    return dataframe
+
+def buildDataFrame(filePath):
+    df_temp = pd.read_csv(filePath,names=['geo','latency','mx','mn','wc'])
+    df_temp = prunDataFrame(df_temp)
+    return df_temp
+
+def pruneForDenseWindows(dataframe,percentage):
+    pd.to_numeric(dataframe.wc)
+    topWindows = dataframe.wc.quantile(percentage)
+    #print(topWindows)
+    dataframe = dataframe[dataframe.wc > topWindows  ]
+    return dataframe
+
+
+def pandasDraw(listOfFilePaths):
+    for 
+
+flink_267K_16_4_ts_in_gn = '/Users/jeka01/Desktop/temp/ts_in_generator/flink_267K_16_4.csv'
+flink_264K_8_4_ts_in_gn = '/Users/jeka01/Desktop/temp/ts_in_generator/flink_264K_8_4.csv'
+
+spark_260K_16_4_ts_in_gn = '/Users/jeka01/Desktop/temp/ts_in_generator/spark_260K_16_4.csv'
+spark_260K_8_4_ts_in_gn = '/Users/jeka01/Desktop/temp/ts_in_generator/spark_260K_8_4.csv'
+
+trident_93K_8_4_ts_in_gn = '/Users/jeka01/Desktop/temp/ts_in_generator/trident_93K_8_4.csv'
+trident_97K_16_4_ts_in_gn = '/Users/jeka01/Desktop/temp/ts_in_generator/trident_97K_16_4.csv'
+
+
+df_flink_267K_16_4_ts_in_gn = buildDataFrame(flink_267K_16_4_ts_in_gn)
+df_flink_264K_8_4_ts_in_gn = buildDataFrame(flink_264K_8_4_ts_in_gn)
+
+df_spark_260K_16_4_ts_in_gn = buildDataFrame(spark_260K_16_4_ts_in_gn)
+df_spark_260K_8_4_ts_in_gn = buildDataFrame(spark_260K_8_4_ts_in_gn)
+
+df_trident_93K_8_4_ts_in_gn = buildDataFrame(trident_93K_8_4_ts_in_gn)
+df_trident_97K_16_4_ts_in_gn = buildDataFrame(trident_97K_16_4_ts_in_gn)
+
+_figsize = (20,8)
+_range = [0,5000]
+
+
+print (' - Timestamp was generated at generator ')
+print (' - Keyed Field was generated sequentially rather than random  ')
+
+
+df_flink_ts_in_gn = pd.DataFrame({'flink_267K_16_4_ts_in_gn':df_flink_267K_16_4_ts_in_gn.latency, 'flink_264K_8_4_ts_in_gn': df_flink_264K_8_4_ts_in_gn.latency},
+                    columns=['flink_267K_16_4_ts_in_gn','flink_264K_8_4_ts_in_gn'])
+ax_flink_ts_in_gn = df_flink_ts_in_gn.hist(figsize=_figsize,bins=100,range=_range)
+
+
+df_spark_ts_in_gn = pd.DataFrame({'spark_260K_16_4_ts_in_gn':df_spark_260K_16_4_ts_in_gn.latency, 'spark_260K_8_4_ts_in_gn': df_spark_260K_8_4_ts_in_gn.latency},
+                    columns=['spark_260K_16_4_ts_in_gn','spark_260K_8_4_ts_in_gn'])
+ax_spark_ts_in_gn = df_spark_ts_in_gn.hist(figsize=_figsize,bins=100,range=_range)
+
+df_trident = pd.DataFrame({'trident_93K_8_4':df_trident_93K_8_4.latency, 'trident_97K_16_4': df_trident_97K_16_4.latency},
+                    columns=['trident_93K_8_4','trident_97K_16_4'])
+ax_trident = df_trident.hist(figsize=_figsize,bins=100,range=_range)
+
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# print ('\n Latency of Flink with different data frequencies\n')
+# #df_flink_8_2_F.latency.plot.hist(color='b' )
+# #plt.show()
+
+
+# df4 = pd.DataFrame({'flink':df_flink.latency, 'spark': df_spark.latency},
+#                     columns=['flink','spark'])
+# ax = df4.hist(figsize=(20, 10))
+
+
+# df4 = pd.DataFrame({'100ps-spark':df_spark_8_4_100ps.latency, '10ps-spark': df_spark_8_4_10ps.latency,
+#                      '1ps-spark': df_spark_8_4_1ps.latency},
+#                     columns=['100ps-spark','10ps-spark','1ps-spark'])
+#ax = df4.hist(figsize=(15, 10),range=[0, 50],bins=500)
+
+
+
+#ax=df4.plot.hist(figsize=(15, 10),bins=50)
+#ax=df4.plot.bar(figsize=(15, 10))
+#ax.set_xlim(55)
+
+
+
+# #print(df_flink)
+# #df4.diff().hist()
+# plt.show()
+
+
+
+quant = 0.3
+
+print (' - Timestamp was generated at generator ')
+print (' - Keyed Field was generated sequentially rather than random  ')
+print (' - Window element counts are higher than  ' + str(quant))
+
+
+
+
+
+
+
+df_flink_267K_16_4 = pruneForDenseWindows(df_flink_267K_16_4,quant)
+df_flink_264K_8_4 = pruneForDenseWindows(df_flink_264K_8_4,quant)
+
+df_spark_260K_16_4 = pruneForDenseWindows(df_spark_260K_16_4,quant)
+df_spark_260K_8_4 = pruneForDenseWindows(df_spark_260K_8_4,quant)
+
+df_trident_93K_8_4 = pruneForDenseWindows(df_trident_93K_8_4,quant)
+df_trident_97K_16_4 = pruneForDenseWindows(df_trident_97K_16_4,quant)
+
+
+df_flink = pd.DataFrame({'flink_267K_16_4':df_flink_267K_16_4.latency, 'flink_264K_8_4': df_flink_264K_8_4.latency},
+                    columns=['flink_267K_16_4','flink_264K_8_4'])
+ax_flink = df_flink.hist(figsize=_figsize,bins=100,range=_range)
+
+
+df_spark = pd.DataFrame({'spark_260K_16_4':df_spark_260K_16_4.latency, 'spark_260K_8_4': df_spark_260K_8_4.latency},
+                    columns=['spark_260K_16_4','spark_260K_8_4'])
+ax_spark = df_spark.hist(figsize=_figsize,bins=100,range=_range)
+
+df_trident = pd.DataFrame({'trident_93K_8_4':df_trident_93K_8_4.latency, 'trident_97K_16_4': df_trident_97K_16_4.latency},
+                    columns=['trident_93K_8_4','trident_97K_16_4'])
+ax_trident = df_trident.hist(figsize=_figsize,bins=100,range=_range)
+
+plt.show()
