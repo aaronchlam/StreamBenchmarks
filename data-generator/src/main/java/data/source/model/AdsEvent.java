@@ -24,11 +24,13 @@ public class AdsEvent {
     private boolean putTs;
 
     private int geoIndex = 0;
-    private Random rand = new Random(93285L);
+   // private Random rand = new Random(93285L);
+    private Random rand = new Random();
     DataFactory df = new DataFactory();
     private List<String> osList = Arrays.asList("iOS", "Android", "Blackberry", "WindowsPhone");
     private List<String> phoneList = Arrays.asList("iPhone6", "iPhone6S", "Blackberry", "Samsung-Edge", "LG");
-    private String[] geoList = {"AF","AX", "AL","DZ","AS","AD","AO","AI","AQ","AG","AR", "AM",
+    private String[] geoList = {"AF","AX", "AL"
+            ,"DZ","AS","AD","AO","AI","AQ","AG","AR", "AM",
             "AW","AC","AU","AT","AZ","BS","BH","BB","BD","BY","BE","BZ", "BJ","BM","BT","BW","BO","BA","BV","BR",
             "IO","BN","BG","BF","BI","KH","CM","CA","CV","KY","CF","TD","CL","CN","CX","CC","CO","KM","CG","CD",
             "CK","CR","CI","HR", "CU","CY","CZ","CS","DK","DJ","DM","DO","TP","EC","EG","SV","GQ","ER","EE","ET",
