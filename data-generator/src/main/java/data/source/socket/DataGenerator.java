@@ -78,10 +78,9 @@ public class DataGenerator extends Thread {
                             Thread.sleep(sleepTime);
                         for (int b = 0; b < blobSize && i < benchmarkCount; b++, i++) {
                             JSONObject obj = dg.generateJson(false);
+                            logger.info((benchmarkCount - i) + " elements left, obj is " + obj.toString() );
                             out.println(obj.toString());
                         }
-                        if (i % 1000 == 0)
-                            logger.info((benchmarkCount - i) + " elements left ");
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
