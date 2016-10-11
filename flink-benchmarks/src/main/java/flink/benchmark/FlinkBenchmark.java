@@ -142,7 +142,7 @@ public class FlinkBenchmark {
 
                     @Override
                     public Tuple3<String, Long, Double> join(Tuple3<String, Long, Double> t1, Tuple3<String, Long, Double> t2) throws Exception {
-                        return new Tuple3<String, Long, Double>(t1.f0, Math.max(t1.f1,t2.f1), t1.f2-t2.f2);
+                        return new Tuple3<String, Long, Double>(t1.f0, Math.max(t1.f1,t2.f1), t1.f2<0 ||t2.f2<0? -100D : Math.abs(t1.f2-t2.f2));
                     }
                 });
 
