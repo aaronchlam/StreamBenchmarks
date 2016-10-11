@@ -72,18 +72,7 @@ public class DataGenerator extends Thread {
                 }
                 logger.info("WARMUP BENCHMARK ENDED on " + InetAddress.getLocalHost().getHostName());
                 long currTime = System.currentTimeMillis();
-                long currIndex = 0L;
-                long thoughput = 0L;
-                long throughputCount = 0L;
                 for (long i = 0; i < benchmarkCount; i++) {
-                    if (currTime + 1000L < System.currentTimeMillis()) {
-                        currTime = System.currentTimeMillis();
-                        thoughput = thoughput + (i - currIndex);
-                        currIndex = i;
-                        throughputCount++;
-                        logger.info("current thoguhtput is " + (thoughput / throughputCount) + " on machine " + InetAddress.getLocalHost().getHostName());
-                        //System.out.println("current thoguhtput is "+ (thoughput / throughputCount) + " on machine " + InetAddress.getLocalHost().getHostName() );
-                    }
                     try {
                         if (sleepTime != 0)
                             Thread.sleep(sleepTime);
@@ -91,12 +80,15 @@ public class DataGenerator extends Thread {
                             JSONObject obj = dg.generateJson(false);
                             out.println(obj.toString());
                         }
+                        if (i % 1000 == 0)
+                            logger.info((benchmarkCount - i) + " elements left ");
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
+                long  duration = System.currentTimeMillis() - currTime;
                 logger.info("\n \n ---CURRENT BENCHMARK ENDED---- on " + InetAddress.getLocalHost().getHostName() +
-                        " \n \n Throughtput is " + (thoughput / throughputCount));
+                        " \n \n Throughtput is " + (benchmarkCount / duration));
                 //System.out.println("\n \n ---CURRENT BENCHMARK ENDED---- on " + InetAddress.getLocalHost().getHostName() +
                 //              " \n \n Throughtput is " + (thoughput / throughputCount));
             } catch (SocketTimeoutException s) {
