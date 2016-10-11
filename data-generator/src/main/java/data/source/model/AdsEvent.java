@@ -23,7 +23,6 @@ public class AdsEvent {
         } else{
             geoList = Arrays.copyOfRange(geoListAll, (int) (geoListAll.length * (1 + partition)), geoListAll.length);
         }
-        for (String i: geoList)
     }
 
     private boolean isRandomGeo;
