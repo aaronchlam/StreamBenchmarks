@@ -88,7 +88,7 @@ def stop_process(name,host):
 				pid = int(line_list[1])
     				print('process with id ' + `pid` + ' found')
 				try:
-					os.kill(pid, -9)
+					os.kill(pid)
 					print('killed')
 					time.sleep(1)
 				except :
