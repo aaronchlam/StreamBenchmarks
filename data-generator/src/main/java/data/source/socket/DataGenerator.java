@@ -26,7 +26,7 @@ public class DataGenerator extends Thread {
     private long sleepTime;
     private long blobSize;
     private boolean isRandomGeo;
-
+    private static Double partition;
     private boolean putTs;
     private Logger logger = Logger.getLogger("MyLog");
     private FileHandler fh;
@@ -50,7 +50,7 @@ public class DataGenerator extends Thread {
     }
 
     public void run() {
-        AdsEvent dg = new AdsEvent(isRandomGeo, putTs);
+        AdsEvent dg = new AdsEvent(isRandomGeo, putTs, partition);
         while (true) {
             try {
                 System.out.println("Waiting for client on port " + serverSocket.getLocalPort() + "...");
@@ -104,6 +104,7 @@ public class DataGenerator extends Thread {
 
     public static void main(String[] args) throws Exception {
         String confFilePath = args[0];
+        partition = new Double(args[1]);
         YamlReader reader = new YamlReader(new FileReader(confFilePath));
         Object object = reader.read();
         HashMap conf = (HashMap) object;

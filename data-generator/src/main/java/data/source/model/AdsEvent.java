@@ -15,21 +15,27 @@ import java.util.*;
  */
 public class AdsEvent {
 
-    public AdsEvent(boolean isRandomGeo, boolean putTs) {
+    public AdsEvent(boolean isRandomGeo, boolean putTs, Double partition) {
         this.isRandomGeo = isRandomGeo;
         this.putTs = putTs;
+        if (partition > 0){
+            geoList = Arrays.copyOfRange(geoListAll, 0, (int) (geoListAll.length * partition));
+        } else{
+            geoList = Arrays.copyOfRange(geoListAll, (int) (geoListAll.length * (1 + partition)), geoListAll.length);
+        }
+        for (String i: geoList)
     }
 
     private boolean isRandomGeo;
     private boolean putTs;
 
     private int geoIndex = 0;
-    // private Random rand = new Random(93285L);
-    private Random rand = new Random();
+    private Random rand = new Random(93285L);
+    //private Random rand = new Random();
     DataFactory df = new DataFactory();
     private List<String> osList = Arrays.asList("iOS", "Android", "Blackberry", "WindowsPhone");
     private List<String> phoneList = Arrays.asList("iPhone6", "iPhone6S", "Blackberry", "Samsung-Edge", "LG");
-    private String[] geoList = {"AF", "AX", "AL"
+    private String[] geoListAll = {"AF", "AX", "AL"
             , "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM",
             "AW", "AC", "AU", "AT", "AZ", "BS", "BH", "BB", "BD", "BY", "BE", "BZ", "BJ", "BM", "BT", "BW", "BO", "BA", "BV", "BR",
             "IO", "BN", "BG", "BF", "BI", "KH", "CM", "CA", "CV", "KY", "CF", "TD", "CL", "CN", "CX", "CC", "CO", "KM", "CG", "CD",
@@ -43,6 +49,7 @@ public class AdsEvent {
             "VC", "WS", "SM", "ST", "SA", "SN", "RS", "YU", "SC", "SL", "SG", "SI", "SK", "SB", "SO", "ZA", "ES", "LK", "SH", "PM",
             "SD", "SR", "SJ", "SZ", "SE", "CH", "SY", "TW", "TJ", "TZ", "TH", "TG", "TK", "TO", "TT", "TN", "TR", "TM", "TC", "TV",
             "UG", "UA", "AE", "UK", "US", "UM", "UY", "SU", "UZ", "VU", "VA", "VE", "VN", "VG", "VI", "WF", "EH", "YE", "ZM", "ZR", "ZW"};
+    private String[] geoList = null;
 
     public JSONObject generateJson(boolean isDummy) {
         //date
