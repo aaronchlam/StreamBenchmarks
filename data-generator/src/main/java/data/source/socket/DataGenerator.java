@@ -78,14 +78,15 @@ public class DataGenerator extends Thread {
                             Thread.sleep(sleepTime);
                         for (int b = 0; b < blobSize && i < benchmarkCount; b++, i++) {
                             JSONObject obj = dg.generateJson(false);
-                            logger.info((benchmarkCount - i) + " elements left, obj is " + obj.toString() );
                             out.println(obj.toString());
                         }
+                        if (i % 1000 == 0)
+                            logger.info((benchmarkCount - i) + " elements left ");
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
-                long  duration = System.currentTimeMillis() - currTime;
+                long  duration = (System.currentTimeMillis() - currTime)/1000;
                 logger.info("\n \n ---CURRENT BENCHMARK ENDED---- on " + InetAddress.getLocalHost().getHostName() +
                         " \n \n Throughtput is " + (benchmarkCount / duration));
                 //System.out.println("\n \n ---CURRENT BENCHMARK ENDED---- on " + InetAddress.getLocalHost().getHostName() +
