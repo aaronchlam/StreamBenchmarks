@@ -145,8 +145,17 @@ public class FlinkBenchmark {
                         return new Tuple3<String, Long, Double>(t1.f0, Math.max(t1.f1,t2.f1), t1.f2-t2.f2);
                     }
                 });
+
+        DataStream<Tuple3<String, Long, Double>> resultingStream = joinedStream.map(new MapFunction<Tuple3<String, Long, Double>, Tuple3<String, Long, Double>>() {
+            @Override
+            public Tuple3<String, Long, Double> map(Tuple3<String, Long, Double> t1) throws Exception {
+                return new Tuple3<String, Long, Double>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2);
+            }
+        });
+
+
         String outputFile = conf.get("flink.output").toString();
-        joinedStream.addSink(new WriteSinkFunctionByMillis<Tuple3<String, Long, Double>>(outputFile, new WriteFormatAsCsv(), flushRate));
+        resultingStream.addSink(new WriteSinkFunctionByMillis<Tuple3<String, Long, Double>>(outputFile, new WriteFormatAsCsv(), flushRate));
 
     }
 
