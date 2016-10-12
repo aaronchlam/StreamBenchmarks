@@ -5,6 +5,7 @@
 package flink.benchmark;
 
 import com.esotericsoftware.yamlbeans.YamlReader;
+import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.JoinFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
@@ -153,9 +154,14 @@ public class FlinkBenchmark {
             }
         });
 
-
+        DataStream<Tuple3<String, Long, Double>> filteredStream = resultingStream.filter(new FilterFunction<Tuple3<String, Long, Double>>() {
+            @Override
+            public boolean filter(Tuple3<String, Long, Double> t) throws Exception {
+                return t.f2 > 0;
+            }
+        });
         String outputFile = conf.get("flink.output").toString();
-        resultingStream.addSink(new WriteSinkFunctionByMillis<Tuple3<String, Long, Double>>(outputFile, new WriteFormatAsCsv(), flushRate));
+        filteredStream.addSink(new WriteSinkFunctionByMillis<Tuple3<String, Long, Double>>(outputFile, new WriteFormatAsCsv(), flushRate));
 
     }
 
