@@ -80,7 +80,7 @@ object SparkBenchmark {
     }).window(Milliseconds(slidingWindowLength), Milliseconds(slidingWindowSlide))
 
 
-    val joinedStream  = windowedStream1.join(windowedStream2).map(t=>(t._1, Math.max(t._2._1._1, t._2._2._1), if (t._2._1._2 < 0 || t._2._2._2 < 0) -100D else Math.abs(t._2._1._2 - t._2._2._2) ))
+    val joinedStream  = windowedStream1.join(windowedStream2).map(t=>(t._1, System.currentTimeMillis() -  Math.max(t._2._1._1, t._2._2._1), if (t._2._1._2 < 0 || t._2._2._2 < 0) -100D else Math.abs(t._2._1._2 - t._2._2._2) ))
     val resultStream = joinedStream.filter(t=> t._3 > 0)
 
 //    val windowReduce1 = windowedStream1.reduceByKey((t1, t2) => new Tuple4[Long, Double, Double, Long](Math.max(t1._1, t2._1), Math.max(t1._2, t2._2), Math.min(t1._3, t2._3), t1._4 + t2._4))
