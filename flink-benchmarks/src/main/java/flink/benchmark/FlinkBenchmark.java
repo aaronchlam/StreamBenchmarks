@@ -17,6 +17,7 @@ import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.AllWindowedStream;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.WriteFormatAsCsv;
 import org.apache.flink.streaming.api.functions.sink.WriteSinkFunctionByMillis;
@@ -101,7 +102,7 @@ public class FlinkBenchmark {
             }
         }
 
-        DataStream<Tuple3<String, Long, Double>> projectedStream1 = joinStream1.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
+        KeyedStream<Tuple3<String, Long, Double>,String> projectedStream1 = joinStream1.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
             @Override
             public Tuple3<String, Long, Double> map(String s) throws Exception {
                 JSONObject obj = new JSONObject(s);
@@ -110,9 +111,14 @@ public class FlinkBenchmark {
                 Long ts = obj.has("ts") ? obj.getLong("ts"):System.currentTimeMillis();
                 return new Tuple3<String, Long, Double>(geo, ts , price);
             }
+        }).keyBy(new KeySelector<Tuple3<String,Long,Double>, String>() {
+            @Override
+            public String getKey(Tuple3<String, Long, Double> t) throws Exception {
+                return t.f0;
+            }
         });
 
-        DataStream<Tuple3<String, Long, Double>> projectedStream2 = joinStream2.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
+        KeyedStream<Tuple3<String, Long, Double>,String> projectedStream2 = joinStream2.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
             @Override
             public Tuple3<String, Long, Double> map(String s) throws Exception {
                 JSONObject obj = new JSONObject(s);
@@ -120,6 +126,11 @@ public class FlinkBenchmark {
                 Double price = obj.getJSONObject("m").getDouble("price");
                 Long ts = obj.has("ts") ? obj.getLong("ts"):System.currentTimeMillis();
                 return new Tuple3<String, Long, Double>(geo, ts , price);
+            }
+        }).keyBy(new KeySelector<Tuple3<String, Long, Double>, String>() {
+            @Override
+            public String getKey(Tuple3<String, Long, Double> t) throws Exception {
+                return t.f0;
             }
         });
 
@@ -146,6 +157,7 @@ public class FlinkBenchmark {
                         return new Tuple3<String, Long, Double>(t1.f0, Math.max(t1.f1,t2.f1), t1.f2<0 ||t2.f2<0? -100D : Math.abs(t1.f2-t2.f2));
                     }
                 });
+
 
         DataStream<Tuple3<String, Long, Double>> resultingStream = joinedStream.map(new MapFunction<Tuple3<String, Long, Double>, Tuple3<String, Long, Double>>() {
             @Override
