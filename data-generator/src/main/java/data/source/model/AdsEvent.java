@@ -125,6 +125,7 @@ public class AdsEvent {
 
         json.put("m", m);
         if (putTs) json.put("ts", System.currentTimeMillis());
+        json.put("isDummy", isDummy);
         return json;
     }
 
