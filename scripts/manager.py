@@ -164,8 +164,8 @@ def start_data_generators():
 	print('data generators started')
 
 
-def start_data_generator():
-	sp.call(['java','-cp', project_dir + 'data-generator/target/data-generator-0.1.0.jar', 'data.source.socket.DataGenerator', project_dir + 'conf/benchmarkConf.yaml' ])
+def start_data_generator(partition):
+	sp.call(['java','-cp', project_dir + 'data-generator/target/data-generator-0.1.0.jar', 'data.source.socket.DataGenerator', project_dir + 'conf/benchmarkConf.yaml',''+partition ])
 
 
 
@@ -201,10 +201,10 @@ if(len(sys.argv[1:]) == 1):
 		 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/trident/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/results/tridentFile.csv')
 	elif(arg == "start-datagenerators"):
 		start_data_generators()
-	elif(arg == "start-datagenerator"):
-		start_data_generator()
 elif(len(sys.argv[1:]) == 2):
 	arg1 = sys.argv[1]	
 	arg2 = sys.argv[2]
 	if(arg1 == "stop-process-all"):
 		stop_process_all(arg2)	
+	elif(arg1 == "start-datagenerator"):
+                start_data_generator(arg2)
