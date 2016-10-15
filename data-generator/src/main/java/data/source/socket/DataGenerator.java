@@ -114,8 +114,11 @@ class BufferReader extends Thread {
             long timeStart = 0;
 
             boolean warmupContinues = true;
-            for (long i = 0; i < bufferElements; i++) {
-                JSONObject tuple = buffer.take();
+            for (long i = 0; i < bufferElements; ) {
+                JSONObject tuple = buffer.poll();
+                if (tuple == null){
+                    continue;
+                }
                 if (warmupContinues){
                     if (! tuple.getBoolean("isDummy")){
                         warmupContinues = false;
@@ -126,6 +129,7 @@ class BufferReader extends Thread {
                 if (i % 1000 == 0)
                     logger.info( (bufferElements - i) + " tuples left in buffer  ");
                 out.println(tuple.toString());
+                i++;
             }
             long timeEnd = System.currentTimeMillis();
             logger.info("BENCHMARK ENDED on " + (timeEnd - timeStart) + " milliseconds "
