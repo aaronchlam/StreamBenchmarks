@@ -120,8 +120,11 @@ class BufferReader extends Thread {
                     if (! tuple.getBoolean("isDummy")){
                         warmupContinues = false;
                         timeStart = System.currentTimeMillis();
+                        logger.info("WARMUP ENDED  ");
                     }
                 }
+                if (i % 1000 == 0)
+                    logger.info( (bufferElements - i) + " tuples left in buffer  ");
                 out.println(tuple.toString());
             }
             long timeEnd = System.currentTimeMillis();
