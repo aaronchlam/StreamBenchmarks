@@ -129,7 +129,7 @@ class BufferReader extends Thread {
                 out.println(tuple.toString());
             }
             long timeEnd = System.currentTimeMillis();
-            logger.info("BENCHMARK ENDED on " + (timeStart - timeEnd) + " milliseconds "
+            logger.info("BENCHMARK ENDED on " + (timeEnd - timeStart) + " milliseconds "
                     + InetAddress.getLocalHost().getHostName());
 
         } catch (Exception e) {
