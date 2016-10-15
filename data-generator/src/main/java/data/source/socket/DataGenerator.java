@@ -43,12 +43,8 @@ public class DataGenerator extends Thread {
     }
 
     public void run() {
-        while (true) {
             sendTuples(warmupCount, true);
             sendTuples(benchmarkCount, false);
-            long currTime = System.currentTimeMillis();
-            long duration = (System.currentTimeMillis() - currTime) / 1000;
-        }
     }
 
 
