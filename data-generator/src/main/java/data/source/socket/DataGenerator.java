@@ -133,6 +133,7 @@ class BufferReader extends Thread {
             logger.info("---BENCHMARK ENDED--- on " + (timeEnd - timeStart) + " milliseconds "
                     + InetAddress.getLocalHost().getHostName());
             System.out.println("Waiting for client on port " + serverSocket.getLocalPort() + "...");
+            Socket server = serverSocket.accept();
 
 
         } catch (Exception e) {
