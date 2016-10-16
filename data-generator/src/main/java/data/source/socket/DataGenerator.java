@@ -49,7 +49,7 @@ public class DataGenerator extends Thread {
 
 
     private void sendTuples(long tupleCount, boolean isWarmUp) {
-        for (long i = 0; i < tupleCount; i++) {
+        for (long i = 0; i < tupleCount; ) {
             try {
                 if (sleepTime != 0)
                     Thread.sleep(sleepTime);
@@ -114,25 +114,21 @@ class BufferReader extends Thread {
             long timeStart = 0;
 
             boolean warmupContinues = true;
-            for (long i = 0; i < bufferElements; ) {
-                JSONObject tuple = buffer.poll();
-                if (tuple == null){
-                    continue;
-                }
+            for (long i = 0; i < bufferElements; i++ ) {
+                JSONObject tuple = buffer.take();
                 if (warmupContinues){
                     if (! tuple.getBoolean("isDummy")){
                         warmupContinues = false;
                         timeStart = System.currentTimeMillis();
-                        logger.info("WARMUP ENDED  ");
+                        logger.info("---WARMUP ENDED---  ");
                     }
                 }
-                if (i % 1000 == 0)
+                if (i % 5000 == 0)
                     logger.info( (bufferElements - i) + " tuples left in buffer  ");
                 out.println(tuple.toString());
-                i++;
             }
             long timeEnd = System.currentTimeMillis();
-            logger.info("BENCHMARK ENDED on " + (timeEnd - timeStart) + " milliseconds "
+            logger.info("---BENCHMARK ENDED--- on " + (timeEnd - timeStart) + " milliseconds "
                     + InetAddress.getLocalHost().getHostName());
 
         } catch (Exception e) {
