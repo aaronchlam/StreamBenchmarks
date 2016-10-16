@@ -93,11 +93,13 @@ class BufferReader extends Thread {
     private BlockingQueue<JSONObject> buffer;
     private Logger logger = Logger.getLogger("MyLog");
     private long bufferElements;
+    private long benchmarkCount;
     private PrintWriter out;
     private ServerSocket  serverSocket;
     public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket  serverSocket) {
         this.buffer = buffer;
         this.bufferElements = new Long(conf.get("benchmarking.count").toString()) + new Long(conf.get("warmup.count").toString());
+        this.benchmarkCount = new Long(conf.get("benchmarking.count").toString());
         this.out = out;
         this.serverSocket = serverSocket;
         try {
@@ -130,7 +132,8 @@ class BufferReader extends Thread {
                 out.println(tuple.toString());
             }
             long timeEnd = System.currentTimeMillis();
-            logger.info("---BENCHMARK ENDED--- on " + (timeEnd - timeStart) + " milliseconds "
+            Long throughput = benchmarkCount / ( (timeEnd - timeStart)/1000);
+            logger.info("---BENCHMARK ENDED--- on " +  (timeEnd - timeStart)/1000 + " seconds with " + throughput + " throughput"
                     + InetAddress.getLocalHost().getHostName());
             System.out.println("Waiting for client on port " + serverSocket.getLocalPort() + "...");
             Socket server = serverSocket.accept();
