@@ -224,10 +224,17 @@ public class FlinkBenchmark {
                         });
 
 
-        DataStream<Tuple5<String, Long, Double, Double,Long>> resultingStream = aggregatedStream.map(new MapFunction<Tuple5<String, Long, Double, Double,Long>, Tuple5<String, Long, Double, Double,Long>>() {
+        DataStream<Tuple5<String, Long, Double, Double,Long>> mappedStream = aggregatedStream.map(new MapFunction<Tuple5<String, Long, Double, Double,Long>, Tuple5<String, Long, Double, Double,Long>>() {
             @Override
             public Tuple5<String, Long, Double, Double,Long> map(Tuple5<String, Long, Double, Double,Long> t1) throws Exception {
                 return new Tuple5<String, Long, Double, Double,Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2, t1.f3,t1.f4);
+            }
+        });
+
+        DataStream<Tuple5<String, Long, Double, Double,Long>> resultingStream = mappedStream.filter(new FilterFunction<Tuple5<String, Long, Double, Double, Long>>() {
+            @Override
+            public boolean filter(Tuple5<String, Long, Double, Double, Long> t) throws Exception {
+                return  t.f2 > 0 && t.f3 > 0;
             }
         });
 

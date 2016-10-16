@@ -19,10 +19,7 @@ import org.apache.storm.topology.base.BaseWindowedBolt;
 import org.apache.storm.trident.Stream;
 import org.apache.storm.trident.TridentState;
 import org.apache.storm.trident.TridentTopology;
-import org.apache.storm.trident.operation.BaseAggregator;
-import org.apache.storm.trident.operation.BaseFunction;
-import org.apache.storm.trident.operation.MapFunction;
-import org.apache.storm.trident.operation.TridentCollector;
+import org.apache.storm.trident.operation.*;
 import org.apache.storm.trident.spout.IBatchSpout;
 import org.apache.storm.trident.state.BaseStateUpdater;
 import org.apache.storm.trident.state.StateFactory;
@@ -187,6 +184,12 @@ public class TridentBenchmark {
                                 null,
                                 new Fields("geo", "ts", "max_price", "min_price", "window_elements"))
                         .map(new FinalTS())
+                        .filter(new BaseFilter() {
+                            @Override
+                            public boolean isKeep(TridentTuple t) {
+                                return t.getDouble(2) > 0 && t.getDouble(3) > 0;
+                            }
+                        })
                         .partitionPersist(factory, hdfsFields, new HdfsUpdater(), new Fields());
         return topology.build();
     }
