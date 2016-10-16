@@ -125,8 +125,9 @@ object SparkBenchmark {
         val elementCount: Long = t1._4 + t2._4
         new Tuple4[Long, Double, Double, Long](ts, maxPrice, minPrice, elementCount)
       })
-    val resultStream = windowedStream.map(tuple => new Tuple5[String, Long, Double, Double, Long](tuple._1, System.currentTimeMillis() - tuple._2._1, tuple._2._2, tuple._2._3, tuple._2._4))
+    val mappedStream = windowedStream.map(tuple => new Tuple5[String, Long, Double, Double, Long](tuple._1, System.currentTimeMillis() - tuple._2._1, tuple._2._2, tuple._2._3, tuple._2._4))
 
+    val resultStream = mappedStream.filter(t=> t._3>0 && t._4 > 0)
     val outputFile = commonConfig.get("spark.output").toString
     resultStream.saveAsTextFiles(outputFile);
     // resultStream.print();
