@@ -80,7 +80,7 @@ public class DataGenerator extends Thread {
         BlockingQueue<JSONObject> buffer = new LinkedBlockingQueue<>();
         try {
             Thread generator = new DataGenerator(conf, buffer);
-            Thread bufferReader = new BufferReader(buffer,conf, out);
+            Thread bufferReader = new BufferReader(buffer,conf, out,  serverSocket);
             generator.start();
             bufferReader.start();
         } catch (Exception e) {
@@ -94,10 +94,12 @@ class BufferReader extends Thread {
     private Logger logger = Logger.getLogger("MyLog");
     private long bufferElements;
     private PrintWriter out;
-    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out) {
+    private ServerSocket  serverSocket;
+    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket  serverSocket) {
         this.buffer = buffer;
         this.bufferElements = new Long(conf.get("benchmarking.count").toString()) + new Long(conf.get("warmup.count").toString());
         this.out = out;
+        this.serverSocket = serverSocket;
         try {
             String logFile = conf.get("datasource.logs").toString();
             FileHandler fh = new FileHandler(logFile);
@@ -130,6 +132,8 @@ class BufferReader extends Thread {
             long timeEnd = System.currentTimeMillis();
             logger.info("---BENCHMARK ENDED--- on " + (timeEnd - timeStart) + " milliseconds "
                     + InetAddress.getLocalHost().getHostName());
+            System.out.println("Waiting for client on port " + serverSocket.getLocalPort() + "...");
+
 
         } catch (Exception e) {
             e.printStackTrace();
