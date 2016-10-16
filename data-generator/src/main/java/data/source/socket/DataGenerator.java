@@ -43,8 +43,16 @@ public class DataGenerator extends Thread {
     }
 
     public void run() {
+        try {
             sendTuples(warmupCount, true);
+            while (!buffer.isEmpty()) {
+                currentThread().sleep(1000);
+                System.out.println("sleeeeppppp");
+            }
             sendTuples(benchmarkCount, false);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
 

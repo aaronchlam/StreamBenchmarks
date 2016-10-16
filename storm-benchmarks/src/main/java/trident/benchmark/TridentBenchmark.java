@@ -176,12 +176,12 @@ public class TridentBenchmark {
                 topology
                         .merge(streams)
                         .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price"))
-                        .partitionBy(new Fields("geo"))
+                        .partitionBy(new Fields("geo")).parallelismHint(160)
                         .slidingWindow(new BaseWindowedBolt.Duration(slideWindowLength, TimeUnit.MILLISECONDS),
                                 new BaseWindowedBolt.Duration(slideWindowSlide, TimeUnit.MILLISECONDS),
                                 new InMemoryWindowsStoreFactory(),
                                 new Fields("geo", "ts", "max_price", "min_price"),
-                                null,
+                                new MinMaxAggregator(),
                                 new Fields("geo", "ts", "max_price", "min_price", "window_elements"))
                         .map(new FinalTS())
                         .filter(new BaseFilter() {
