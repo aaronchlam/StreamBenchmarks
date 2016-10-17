@@ -46,7 +46,7 @@ public class DataGenerator extends Thread {
         try {
             sendTuples(warmupCount, true);
             while (!buffer.isEmpty()) {
-                currentThread().sleep(1000);
+                currentThread().sleep(8000);
                 System.out.println("sleeeeppppp");
             }
             sendTuples(benchmarkCount, false);
@@ -57,6 +57,7 @@ public class DataGenerator extends Thread {
 
 
     private void sendTuples(long tupleCount, boolean isWarmUp) {
+        long currTime = System.currentTimeMillis();
         for (long i = 0; i < tupleCount; ) {
             try {
                 if (sleepTime != 0)
@@ -69,6 +70,11 @@ public class DataGenerator extends Thread {
                 e.printStackTrace();
             }
         }
+        if (isWarmUp)
+            System.out.println("Warmup data rate is " + tupleCount / ((currTime - System.currentTimeMillis()) / 1000) + " ps");
+        else
+            System.out.println("Benchmark data rate is " + tupleCount / ((currTime - System.currentTimeMillis()) / 1000) + " ps");
+
     }
 
     public static void main(String[] args) throws Exception {
@@ -79,7 +85,7 @@ public class DataGenerator extends Thread {
         HashMap conf = (HashMap) object;
 
         Integer port = new Integer(conf.get("datasourcesocket.port").toString());
-        ServerSocket  serverSocket = new ServerSocket(port);
+        ServerSocket serverSocket = new ServerSocket(port);
         serverSocket.setSoTimeout(900000);
         System.out.println("Waiting for client on port " + serverSocket.getLocalPort() + "...");
         Socket server = serverSocket.accept();
@@ -88,7 +94,7 @@ public class DataGenerator extends Thread {
         BlockingQueue<JSONObject> buffer = new LinkedBlockingQueue<>();
         try {
             Thread generator = new DataGenerator(conf, buffer);
-            Thread bufferReader = new BufferReader(buffer,conf, out,  serverSocket);
+            Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
             generator.start();
             bufferReader.start();
         } catch (Exception e) {
@@ -103,8 +109,9 @@ class BufferReader extends Thread {
     private long bufferElements;
     private long benchmarkCount;
     private PrintWriter out;
-    private ServerSocket  serverSocket;
-    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket  serverSocket) {
+    private ServerSocket serverSocket;
+
+    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
         this.buffer = buffer;
         this.bufferElements = new Long(conf.get("benchmarking.count").toString()) + new Long(conf.get("warmup.count").toString());
         this.benchmarkCount = new Long(conf.get("benchmarking.count").toString());
@@ -126,24 +133,24 @@ class BufferReader extends Thread {
             long timeStart = 0;
 
             boolean warmupContinues = true;
-            for (long i = 0; i < bufferElements; i++ ) {
+            for (long i = 0; i < bufferElements; i++) {
                 JSONObject tuple = buffer.take();
-                if (warmupContinues){
-                    if (! tuple.getBoolean("isDummy")){
+                if (warmupContinues) {
+                    if (!tuple.getBoolean("isDummy")) {
                         warmupContinues = false;
                         timeStart = System.currentTimeMillis();
                         logger.info("---WARMUP ENDED---  ");
                     }
                 }
                 if (i % 5000 == 0)
-                    logger.info( (bufferElements - i) + " tuples left in buffer  ");
+                    logger.info((bufferElements - i) + " tuples left in buffer  ");
                 out.println(tuple.toString());
             }
             long timeEnd = System.currentTimeMillis();
-            Long throughput = benchmarkCount / ( (timeEnd - timeStart)/1000);
-            logger.info("---BENCHMARK ENDED--- on " +  (timeEnd - timeStart)/1000 + " seconds with " + throughput + " throughput"
+            Long throughput = benchmarkCount / ((timeEnd - timeStart) / 1000);
+            logger.info("---BENCHMARK ENDED--- on " + (timeEnd - timeStart) / 1000 + " seconds with " + throughput + " throughput"
                     + InetAddress.getLocalHost().getHostName());
-            System.out.println("Waiting for client on port " + serverSocket.getLocalPort() + "...");
+            logger.info("Waiting for client on port " + serverSocket.getLocalPort() + "...");
             Socket server = serverSocket.accept();
 
 
