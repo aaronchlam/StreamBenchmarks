@@ -70,11 +70,12 @@ public class DataGenerator extends Thread {
                 e.printStackTrace();
             }
         }
-        if (isWarmUp)
-            System.out.println("Warmup data rate is " + tupleCount / ((currTime - System.currentTimeMillis()) / 1000) + " ps");
-        else
-            System.out.println("Benchmark data rate is " + tupleCount / ((currTime - System.currentTimeMillis()) / 1000) + " ps");
-
+        if (tupleCount != 0){
+            if (isWarmUp )
+                System.out.println("Warmup data rate is " + tupleCount / ((currTime - System.currentTimeMillis()) / 1000) + " ps");
+            else
+                System.out.println("Benchmark data rate is " + tupleCount / ((currTime - System.currentTimeMillis()) / 1000) + " ps");
+        }
     }
 
     public static void main(String[] args) throws Exception {
