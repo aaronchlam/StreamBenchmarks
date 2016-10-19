@@ -12,7 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.*;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
@@ -92,7 +92,8 @@ public class DataGenerator extends Thread {
         Socket server = serverSocket.accept();
         System.out.println("Just connected to " + server.getRemoteSocketAddress());
         PrintWriter out = new PrintWriter(server.getOutputStream(), true);
-        BlockingQueue<JSONObject> buffer = new LinkedBlockingQueue<>();
+        int bufferSize =  new Integer(conf.get("benchmarking.count").toString()) + new Integer(conf.get("warmup.count").toString());
+	 BlockingQueue<JSONObject> buffer = new ArrayBlockingQueue<JSONObject>(bufferSize);    // new LinkedBlockingQueue<>();
         try {
             Thread generator = new DataGenerator(conf, buffer);
             Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
@@ -143,7 +144,7 @@ class BufferReader extends Thread {
                         logger.info("---WARMUP ENDED---  ");
                     }
                 }
-                if (i % 5000 == 0)
+                if (i % 1000000 == 0)
                     logger.info((bufferElements - i) + " tuples left in buffer  ");
                 out.println(tuple.toString());
             }

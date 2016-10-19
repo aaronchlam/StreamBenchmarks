@@ -59,9 +59,11 @@ public class TridentBenchmark {
 
         } else {
             LocalCluster cluster = new LocalCluster();
-            if (usecase.equals("KeyedWindowedAggregation"))
-                cluster.submitTopology(args[2], conf, keyedWindowedAggregation(commonConfig));
-            else if(usecase.equals("WindowedJoin"))
+           conf.setNumWorkers(10);
+           conf.setNumAckers(10); 
+	   if (usecase.equals("KeyedWindowedAggregation"))
+		cluster.submitTopology(args[2], conf, keyedWindowedAggregation(commonConfig));
+	    else if(usecase.equals("WindowedJoin"))
                 cluster.submitTopology(args[2], conf, windowedJoin(commonConfig));
 
         }
