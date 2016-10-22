@@ -128,8 +128,8 @@ class BufferReader extends Thread {
             long timeStart = System.currentTimeMillis();
             for (int i = 0; i < benchmarkCount; i++) {
                 JSONObject tuple = buffer.take();
-                if (benchmarkCount % 100000 == 0)
-                    logger.info(i  + " tuples left sent from buffer");
+                if (i % 100000 == 0)
+                    logger.info(i  + " tuples  sent from buffer");
                 out.println(tuple.toString());
             }
             long timeEnd = System.currentTimeMillis();
