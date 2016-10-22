@@ -115,13 +115,15 @@ class BufferReader extends Thread {
     private long benchmarkCount;
     private PrintWriter out;
     private ServerSocket serverSocket;
+    private int generatorCount ;
 
     public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
         this.buffer = buffer;
-        this.bufferElements = (new Integer(conf.get("benchmarking.count").toString()) + new Integer(conf.get("warmup.count").toString())) / new Integer(conf.get("datagenerator.count").toString()) ;
+        this.bufferElements = (new Integer(conf.get("benchmarking.count").toString()) + new Integer(conf.get("warmup.count").toString())) ;
         this.benchmarkCount = new Long(conf.get("benchmarking.count").toString());
         this.out = out;
         this.serverSocket = serverSocket;
+        this.generatorCount =  new Integer(conf.get("datagenerator.count").toString()) ;
         try {
             String logFile = conf.get("datasource.logs").toString();
             FileHandler fh = new FileHandler(logFile);
@@ -136,9 +138,8 @@ class BufferReader extends Thread {
     public void run() {
         try {
             long timeStart = 0;
-
             boolean warmupContinues = true;
-            for (long i = 0; i < bufferElements; i++) {
+            for (long i = 0; i < bufferElements - generatorCount ; i++) {
                 JSONObject tuple = buffer.take();
                 if (warmupContinues) {
                     if (!tuple.getBoolean("isDummy")) {
