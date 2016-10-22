@@ -10,13 +10,16 @@ import org.apache.flink.api.common.functions.JoinFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.api.java.tuple.Tuple5;
+import org.apache.flink.api.java.tuple.Tuple6;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.AllWindowedStream;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.WriteFormatAsCsv;
@@ -87,20 +90,11 @@ public class FlinkBenchmark {
         int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
         Long flushRate = new Long (conf.get("flush.rate").toString());
-        ArrayList<String> hosts = (ArrayList<String>) conf.get("datasourcesocket.hosts");
+        String host1 =  conf.get("datasourcesocket.joinHost1").toString();
+        String host2 =  conf.get("datasourcesocket.joinHost2").toString();
         Integer port = new Integer(conf.get("datasourcesocket.port").toString());
-        DataStream<String> joinStream1 = null;
-        DataStream<String> joinStream2 = null;
-
-        for (int i = 0 ; i < hosts.size(); i++){
-            String host = hosts.get(i);
-            DataStream<String> socketSource_i = env.socketTextStream(host, port);
-            if (i % 2  == 0){
-                joinStream1 = joinStream1 == null ? socketSource_i : joinStream1.union(socketSource_i);
-            } else {
-                joinStream2 = joinStream2 == null ? socketSource_i : joinStream2.union(socketSource_i);
-            }
-        }
+        DataStreamSource<String> joinStream1 = env.socketTextStream(host1, port);;
+        DataStreamSource<String> joinStream2 = env.socketTextStream(host2, port);;
 
         KeyedStream<Tuple3<String, Long, Double>,String> projectedStream1 = joinStream1.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
             @Override
@@ -159,21 +153,21 @@ public class FlinkBenchmark {
                 });
 
 
-        DataStream<Tuple3<String, Long, Double>> resultingStream = joinedStream.map(new MapFunction<Tuple3<String, Long, Double>, Tuple3<String, Long, Double>>() {
+        DataStream<Tuple4<String, Long, Double, Long>> resultingStream = joinedStream.map(new MapFunction<Tuple3<String, Long, Double>, Tuple4<String, Long, Double, Long>>() {
             @Override
-            public Tuple3<String, Long, Double> map(Tuple3<String, Long, Double> t1) throws Exception {
-                return new Tuple3<String, Long, Double>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2);
+            public Tuple4<String, Long, Double, Long> map(Tuple3<String, Long, Double> t1) throws Exception {
+                return new Tuple4<String, Long, Double, Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2, t1.f1);
             }
         });
 
-        DataStream<Tuple3<String, Long, Double>> filteredStream = resultingStream.filter(new FilterFunction<Tuple3<String, Long, Double>>() {
+        DataStream<Tuple4<String, Long, Double, Long>> filteredStream = resultingStream.filter(new FilterFunction<Tuple4<String, Long, Double, Long>>() {
             @Override
-            public boolean filter(Tuple3<String, Long, Double> t) throws Exception {
+            public boolean filter(Tuple4<String, Long, Double, Long> t) throws Exception {
                 return t.f2 > 0;
             }
         });
         String outputFile = conf.get("flink.output").toString();
-        filteredStream.addSink(new WriteSinkFunctionByMillis<Tuple3<String, Long, Double>>(outputFile, new WriteFormatAsCsv(), flushRate));
+        filteredStream.addSink(new WriteSinkFunctionByMillis<Tuple4<String, Long, Double, Long>>(outputFile, new WriteFormatAsCsv(), flushRate));
 
     }
 
@@ -190,14 +184,10 @@ public class FlinkBenchmark {
         int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
         Long flushRate = new Long (conf.get("flush.rate").toString());
-        ArrayList<String> hosts = (ArrayList<String>) conf.get("datasourcesocket.hosts");
+        String host =  conf.get("datasourcesocket.singleHost").toString();
         Integer port = new Integer(conf.get("datasourcesocket.port").toString());
-        DataStream<String> socketSource = null;
+        DataStreamSource<String> socketSource = env.socketTextStream(host, port);
 	
-        for (String host : hosts){
-            DataStream<String> socketSource_i = env.socketTextStream(host, port);
-            socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);
-        }
 
         DataStream<Tuple5<String, Long, Double, Double,Long>> messageStream = socketSource.map(new MapFunction<String, Tuple5<String, Long, Double, Double,Long>>() {
                     @Override
@@ -224,22 +214,22 @@ public class FlinkBenchmark {
                         });
 
 
-        DataStream<Tuple5<String, Long, Double, Double,Long>> mappedStream = aggregatedStream.map(new MapFunction<Tuple5<String, Long, Double, Double,Long>, Tuple5<String, Long, Double, Double,Long>>() {
+        DataStream<Tuple6<String, Long, Double, Double,Long,Long>> mappedStream = aggregatedStream.map(new MapFunction<Tuple5<String, Long, Double, Double,Long>, Tuple6<String, Long, Double, Double,Long, Long>>() {
             @Override
-            public Tuple5<String, Long, Double, Double,Long> map(Tuple5<String, Long, Double, Double,Long> t1) throws Exception {
-                return new Tuple5<String, Long, Double, Double,Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2, t1.f3,t1.f4);
+            public Tuple6<String, Long, Double, Double,Long,Long> map(Tuple5<String, Long, Double, Double,Long> t1) throws Exception {
+                return new Tuple6<String, Long, Double, Double,Long, Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2, t1.f3,t1.f4, t1.f1);
             }
         });
 
-        DataStream<Tuple5<String, Long, Double, Double,Long>> resultingStream = mappedStream.filter(new FilterFunction<Tuple5<String, Long, Double, Double, Long>>() {
+        DataStream<Tuple6<String, Long, Double, Double,Long, Long>> resultingStream = mappedStream.filter(new FilterFunction<Tuple6<String, Long, Double, Double, Long, Long>>() {
             @Override
-            public boolean filter(Tuple5<String, Long, Double, Double, Long> t) throws Exception {
+            public boolean filter(Tuple6<String, Long, Double, Double, Long, Long> t) throws Exception {
                 return  t.f2 > 0 && t.f3 > 0;
             }
         });
 
         String outputFile = conf.get("flink.output").toString();
-        resultingStream.addSink(new WriteSinkFunctionByMillis<Tuple5<String, Long, Double, Double,Long>>(outputFile, new WriteFormatAsCsv(), flushRate));
+        resultingStream.addSink(new WriteSinkFunctionByMillis<Tuple6<String, Long, Double, Double,Long, Long>>(outputFile, new WriteFormatAsCsv(), flushRate));
 
 
     }

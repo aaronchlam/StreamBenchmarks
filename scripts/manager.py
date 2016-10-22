@@ -68,7 +68,7 @@ def start_storm():
 	with open(slaves) as f:
 		for host in f:
 			#print host
-			sp.Popen (["ssh", host.strip() ,  '\'' + start_supervisor_node + '\''  ],stdout=sp.PIPE,stderr=sp.STDOUT) 
+			sp.Popen (["ssh", host.strip() ,'\'' + start_supervisor_node + '\''   ],stdout=sp.PIPE,stderr=sp.STDOUT) 
 			time.sleep(5)
         		print('supervisor ' + host + ' started')
 	print('storm started')
@@ -76,23 +76,7 @@ def start_storm():
 
 def stop_process(name,host):
 	host  = host.strip()
-	sshProcess = sp.Popen(['ssh', host], stdin=sp.PIPE, stdout = sp.PIPE, universal_newlines=True,bufsize=0)
-	sshProcess.stdin.write("ps -aux | grep " + name + "  \n")
-	sshProcess.stdin.close()
-	for line in sshProcess.stdout:
-    		if line == "END\n":
-        		break
-		if (name in line):
-			line_list = line.split(None)
-			if(len(line_list) > 3 and line_list[1].isdigit()):
-				pid = int(line_list[1])
-    				print('process with id ' + `pid` + ' found')
-				try:
-					os.kill(pid)
-					print('killed')
-					time.sleep(1)
-				except :
-					print "Oops! "
+	sp.call ([ 'ssh', host,  'pkill -f ' + name ]) 
 
 def stop_storm():
 	stop_zookeeper()
@@ -165,7 +149,7 @@ def start_data_generators():
 
 
 def start_data_generator(partition):
-	sp.call(['java','-cp', project_dir + 'data-generator/target/data-generator-0.1.0.jar', 'data.source.socket.DataGenerator', project_dir + 'conf/benchmarkConf.yaml',''+partition ])
+	sp.call(['java','-Xms9120m' ,   '-cp', project_dir + 'data-generator/target/data-generator-0.1.0.jar', 'data.source.socket.DataGenerator', project_dir + 'conf/benchmarkConf.yaml',''+partition ])
 
 
 

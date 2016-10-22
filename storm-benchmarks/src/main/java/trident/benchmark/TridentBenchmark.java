@@ -59,9 +59,11 @@ public class TridentBenchmark {
 
         } else {
             LocalCluster cluster = new LocalCluster();
-            if (usecase.equals("KeyedWindowedAggregation"))
-                cluster.submitTopology(args[2], conf, keyedWindowedAggregation(commonConfig));
-            else if(usecase.equals("WindowedJoin"))
+           conf.setNumWorkers(10);
+           conf.setNumAckers(10); 
+	   if (usecase.equals("KeyedWindowedAggregation"))
+		cluster.submitTopology(args[2], conf, keyedWindowedAggregation(commonConfig));
+	    else if(usecase.equals("WindowedJoin"))
                 cluster.submitTopology(args[2], conf, windowedJoin(commonConfig));
 
         }
@@ -133,7 +135,7 @@ public class TridentBenchmark {
 
     private static StormTopology keyedWindowedAggregation(HashMap commonConfig) throws Exception {
         Integer port = new Integer(commonConfig.get("datasourcesocket.port").toString());
-        ArrayList<String> hosts = (ArrayList<String>) commonConfig.get("datasourcesocket.hosts");
+        String  host = commonConfig.get("datasourcesocket.singleHost").toString();
         int tridentBatchSize = new Integer(commonConfig.get("trident.batchsize").toString());
         String hdfsUrl = commonConfig.get("output.hdfs.url").toString();
         String outputPath = commonConfig.get("trident.output").toString();
@@ -163,18 +165,11 @@ public class TridentBenchmark {
 
         StateFactory factory = new HdfsStateFactory().withOptions(options);
 
-        ArrayList<Stream> streams = new ArrayList<>();
-        for (int i = 0; i < hosts.size(); i++) {
-            String host = hosts.get(i);
-            IBatchSpout spout = new SocketBatchSpout(tridentBatchSize, host, port);
-            Stream socketStream_i = topology.newStream("aggregation" + i, spout);
-            streams.add(socketStream_i);
-        }
 
 
         TridentState countState =
                 topology
-                        .merge(streams)
+                        .newStream("spout",new SocketBatchSpout(tridentBatchSize, host, port))
                         .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price"))
                         .partitionBy(new Fields("geo")).parallelismHint(160)
                         .slidingWindow(new BaseWindowedBolt.Duration(slideWindowLength, TimeUnit.MILLISECONDS),
@@ -303,7 +298,8 @@ class FinalTS implements MapFunction {
                 difference,
                 tuple.getDouble(2),
                 tuple.getDouble(3),
-                tuple.getLong(4)
+                tuple.getLong(4),
+                ts
         );
 
     }
