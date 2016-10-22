@@ -1,84 +1,82 @@
 package data.source.socket;
 
 import com.esotericsoftware.yamlbeans.YamlReader;
-import data.source.model.AdsEvent;
 import org.json.JSONObject;
 
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.net.InetAddress;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.*;
-import java.util.logging.FileHandler;
-import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 /**
  * Created by jeka01 on 02/09/16.
  */
 public class DataGenerator extends Thread {
-    private int benchmarkCount;
-    private long sleepTime;
-    private int blobSize;
-    private boolean isRandomGeo;
-    private static Double partition;
-    private boolean putTs;
-    private BlockingQueue<JSONObject> buffer;
-    private AdsEvent adsEvent;
-    private Control control;
-    private DataGenerator(HashMap conf, BlockingQueue<JSONObject> buffer, Control control) throws IOException {
-        this.buffer = buffer;
-        this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString()) / new Integer(conf.get("datagenerator.count").toString());
-        this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
-        this.blobSize = new Integer(conf.get("datagenerator.blobsize").toString());
-        this.isRandomGeo = new Boolean(conf.get("datagenerator.israndomgeo").toString());
-        this.putTs = new Boolean(conf.get("datagenerator.ts").toString());
-        adsEvent = new AdsEvent(isRandomGeo, putTs, partition);
-        this.control = control;
+    private List<BufferedReader> bufReaders;
+    private PrintWriter out;
+
+    private DataGenerator(HashMap conf, PrintWriter out) throws IOException {
+        System.out.println("dede");
+
+        List<String> urls = (List<String>) conf.get("datasourcesocket.helpers");
+        bufReaders = new ArrayList<>();
+        for (String address : urls) {
+            String host = address.split(":")[0];
+            Integer port = new Integer(address.split(":")[1]);
+            Socket clientSocket = new Socket(host, port);
+            System.out.println("clientSocket " + clientSocket);
+
+            InputStream inFromServer = clientSocket.getInputStream();
+            DataInputStream reader = new DataInputStream(inFromServer);
+            BufferedReader in = new BufferedReader(new InputStreamReader(reader, "UTF-8"));
+            bufReaders.add(in);
+        }
+        this.out = out;
+
     }
 
     public void run() {
         try {
-            sendTuples(benchmarkCount);
-            control.stop = true;
+            int count = 0;
+            while (true) {
+                for (BufferedReader bf : bufReaders) {
+                    out.println(bf.readLine());
+                    System.out.println("dede");
+                    count++;
+                    if (count % 100000 == 0)
+                        System.out.println(count + " tuples sent from buffer");
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
 
-    private void sendTuples(int tupleCount) {
-        long currTime = System.currentTimeMillis();
-        for (int i = 0; i < tupleCount; ) {
-            try {
-                if (sleepTime != 0)
-                    Thread.sleep(sleepTime);
-                for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
-                    JSONObject tuple = adsEvent.generateJson();
-                    buffer.put(tuple);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        long runtime = (currTime - System.currentTimeMillis()) / 1000;
-        System.out.println("Benchmark producer data rate is " + tupleCount / runtime + " ps");
-
-    }
-
     public static void main(String[] args) throws Exception {
         String confFilePath = args[0];
-        partition = new Double(args[1]);
         YamlReader reader = new YamlReader(new FileReader(confFilePath));
         Object object = reader.read();
         HashMap conf = (HashMap) object;
 
+        startFeedServers(conf);
+        startMainServer(conf);
+
+    }
+
+    private static void startFeedServers(HashMap conf) throws Exception{
+        List<String> urls = (List<String>) conf.get("datasourcesocket.helpers");
+        for (String address : urls) {
+            Integer port = new Integer(address.split(":")[1]);
+            Double partition = new Double(address.split(":")[2]);
+            Thread t = new StartFeedSockets(port,conf,partition);
+            t.start();
+        }
+    }
+
+    private static void startMainServer(HashMap conf) throws Exception{
         Integer port = new Integer(conf.get("datasourcesocket.port").toString());
         ServerSocket serverSocket = new ServerSocket(port);
         serverSocket.setSoTimeout(900000);
@@ -86,80 +84,33 @@ public class DataGenerator extends Thread {
         Socket server = serverSocket.accept();
         System.out.println("Just connected to " + server.getRemoteSocketAddress());
         PrintWriter out = new PrintWriter(server.getOutputStream(), true);
-        Integer generatorCount = new Integer(conf.get("datagenerator.count").toString());
-        int bufferSize = new Integer(conf.get("benchmarking.count").toString());
-        final Control control = new Control();
-        List< BlockingQueue<JSONObject>> buffers = new ArrayList<>();
+
+
         try {
-            for (int i = 0; i < generatorCount; i++) {
-                BlockingQueue<JSONObject> buffer = new ArrayBlockingQueue<JSONObject>(bufferSize/generatorCount);
-                buffers.add(buffer);
-                Thread generator = new DataGenerator(conf, buffer, control);
-                generator.start();
-            }
-            Thread bufferReader = new BufferReader(buffers, conf, out, serverSocket);
-            bufferReader.start();
+            Thread generator = new DataGenerator(conf, out);
+            generator.start();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
+
+
+
 }
 
-class BufferReader extends Thread {
-    private List< BlockingQueue<JSONObject>> buffers;
-    private Logger logger = Logger.getLogger("MyLog");
-    private PrintWriter out;
-    private ServerSocket serverSocket;
-    private int benchmarkCount;
-    private int generatorCount;
-
-    public BufferReader(List< BlockingQueue<JSONObject>> buffers, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
-        this.buffers = buffers;
-        this.out = out;
-        this.serverSocket = serverSocket;
-        this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString());
-        this.generatorCount = new Integer(conf.get("datagenerator.count").toString());
-        try {
-            String logFile = conf.get("datasource.logs").toString();
-            FileHandler fh = new FileHandler(logFile);
-            SimpleFormatter formatter = new SimpleFormatter();
-            fh.setFormatter(formatter);
-            logger.addHandler(fh);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+class StartFeedSockets extends Thread {
+    private int port;
+    private HashMap conf;
+    private Double partition;
+    public StartFeedSockets(Integer port, HashMap conf, Double partition) {
+        this.port = port;
+        this.conf = conf;
+        this.partition = partition;
     }
 
     public void run() {
-        try {
-            long timeStart = System.currentTimeMillis();
-            for (int i = 0; i < benchmarkCount/generatorCount; i++) {
-                for (BlockingQueue<JSONObject> buffer : buffers){
-                    JSONObject tuple = buffer.poll();
-                    if (tuple == null) continue;
-                    out.println(tuple.toString());
-                }
-                if (i % 100000 == 0)
-                    logger.info(i  + " tuples sent from buffer");
-            }
-            long timeEnd = System.currentTimeMillis();
-            long runtime = (timeEnd - timeStart) / 1000;
-            long throughput = benchmarkCount / runtime;
-            logger.info("---BENCHMARK ENDED--- on " + runtime + " seconds with " + throughput + " throughput "
-                    + " node : " + InetAddress.getLocalHost().getHostName());
-            logger.info("Waiting for client on port " + serverSocket.getLocalPort() + "...");
-            Socket server = serverSocket.accept();
-
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-
+        DataGeneratorHelper.execute(conf, port, partition);
     }
 }
 
-class Control {
-    public volatile boolean stop = false;
-}
 
