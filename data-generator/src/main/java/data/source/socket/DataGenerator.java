@@ -10,7 +10,7 @@ import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.*;
+import java.util.HashMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.*;
 import java.util.logging.FileHandler;
@@ -27,10 +27,10 @@ public class DataGenerator extends Thread {
     private boolean isRandomGeo;
     private static Double partition;
     private boolean putTs;
-    private Queue<JSONObject> buffer;
+    private BlockingQueue<JSONObject> buffer;
     private AdsEvent adsEvent;
     private Control control;
-    private DataGenerator(HashMap conf, Queue<JSONObject> buffer, Control control) throws IOException {
+    private DataGenerator(HashMap conf, BlockingQueue<JSONObject> buffer, Control control) throws IOException {
         this.buffer = buffer;
         this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString()) / new Integer(conf.get("datagenerator.count").toString());
         this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
@@ -59,7 +59,7 @@ public class DataGenerator extends Thread {
                     Thread.sleep(sleepTime);
                 for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
                     JSONObject tuple = adsEvent.generateJson();
-                    buffer.add(tuple);
+                    buffer.put(tuple);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -86,15 +86,15 @@ public class DataGenerator extends Thread {
         PrintWriter out = new PrintWriter(server.getOutputStream(), true);
         Integer generatorCount = new Integer(conf.get("datagenerator.count").toString());
         int bufferSize = new Integer(conf.get("benchmarking.count").toString());
+        BlockingQueue<JSONObject> buffer = new ArrayBlockingQueue<JSONObject>(bufferSize);    // new LinkedBlockingQueue<>();
         final Control control = new Control();
         try {
             for (int i = 0; i < generatorCount; i++) {
-                Queue<JSONObject> buffer = new LinkedList<JSONObject>();    // new LinkedBlockingQueue<>();
                 Thread generator = new DataGenerator(conf, buffer, control);
                 generator.start();
-                Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
-                bufferReader.start();
             }
+            Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
+            bufferReader.start();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -102,19 +102,16 @@ public class DataGenerator extends Thread {
 }
 
 class BufferReader extends Thread {
-    private Queue<JSONObject> buffer;
+    private BlockingQueue<JSONObject> buffer;
     private Logger logger = Logger.getLogger("MyLog");
     private PrintWriter out;
     private ServerSocket serverSocket;
     private int benchmarkCount;
-    private int generatorCount;
-    public BufferReader(Queue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
+    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
         this.buffer = buffer;
         this.out = out;
         this.serverSocket = serverSocket;
         this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString());
-        this.generatorCount = new Integer(conf.get("datagenerator.count").toString());
-
         try {
             String logFile = conf.get("datasource.logs").toString();
             FileHandler fh = new FileHandler(logFile);
@@ -129,11 +126,12 @@ class BufferReader extends Thread {
     public void run() {
         try {
             long timeStart = System.currentTimeMillis();
-            for (int i = 0; i < benchmarkCount/generatorCount; i++) {
-                JSONObject tuple = buffer.poll();
+            for (int i = 0; i < benchmarkCount; i++) {
+               // JSONObject tuple = buffer.take();
                 if (i % 100000 == 0)
-                    logger.info(i  + " tuples  sent from buffer");
-                out.println(tuple.toString());
+                    logger.info(i  + " tuples sent from buffer");
+                //out.println(tuple.toString());
+                out.println("{\"date\":\"2016-07-24T11:11:22.000+0200\",\"s\":{\"iid\":\"b755e303-9947-4f3a-8b94-871f12853cab\",\"aid1\":\"0.6274461644229823\"},\"t\":{\"dt\":\"iPhone6\",\"geo\":\"AF\",\"osv\":\"4.4\",\"os\":\"Blackberry\",\"ip\":\"123.244.54.92\"},\"m\":{\"price\":\"87.69879\",\"SESSION_ID\":\"60\"}}");
             }
             long timeEnd = System.currentTimeMillis();
             long runtime = (timeEnd - timeStart) / 1000;
