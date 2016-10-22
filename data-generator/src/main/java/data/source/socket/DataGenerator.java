@@ -98,10 +98,10 @@ public class DataGenerator extends Thread {
         try {
             for (int i = 0; i < generatorCount ; i++){
                 Thread generator = new DataGenerator(conf, buffer);
-                Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
                 generator.start();
-                bufferReader.start();
             }
+            Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
+            bufferReader.start();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -147,7 +147,7 @@ class BufferReader extends Thread {
                         logger.info("---WARMUP ENDED---  ");
                     }
                 }
-                if (i % 1000000 == 0)
+                if (i % 100000 == 0)
                     logger.info((bufferElements - i) + " tuples left in buffer  ");
                 out.println(tuple.toString());
             }
