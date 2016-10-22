@@ -92,9 +92,9 @@ public class DataGenerator extends Thread {
             for (int i = 0; i < generatorCount; i++) {
                 Thread generator = new DataGenerator(conf, buffer, control);
                 generator.start();
-                Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket, "Thread-" + i, control);
-                bufferReader.start();
             }
+            Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
+            bufferReader.start();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -106,15 +106,12 @@ class BufferReader extends Thread {
     private Logger logger = Logger.getLogger("MyLog");
     private PrintWriter out;
     private ServerSocket serverSocket;
-    private String threadName;
-    private Control control;
-
-    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket, String name, Control control) {
+    private int benchmarkCount;
+    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
         this.buffer = buffer;
         this.out = out;
         this.serverSocket = serverSocket;
-        this.threadName = name;
-        this.control = control;
+        this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString());
         try {
             String logFile = conf.get("datasource.logs").toString();
             FileHandler fh = new FileHandler(logFile);
@@ -129,18 +126,16 @@ class BufferReader extends Thread {
     public void run() {
         try {
             long timeStart = System.currentTimeMillis();
-            int count = 0;
-            while (!control.stop) {
+            for (int i = 0; i < benchmarkCount; i++) {
                 JSONObject tuple = buffer.take();
-                if (count % 100000 == 0)
-                    logger.info(count + " tuples left sent from buffer in Thread  " + threadName);
+                if (benchmarkCount % 100000 == 0)
+                    logger.info(i  + " tuples left sent from buffer");
                 out.println(tuple.toString());
-                count++;
             }
             long timeEnd = System.currentTimeMillis();
             long runtime = (timeEnd - timeStart) / 1000;
-            long throughput = count / runtime;
-            logger.info("---BENCHMARK ENDED--- on " + runtime + " seconds with " + throughput + " throughput in Thread " + threadName
+            long throughput = benchmarkCount / runtime;
+            logger.info("---BENCHMARK ENDED--- on " + runtime + " seconds with " + throughput + " throughput "
                     + " node : " + InetAddress.getLocalHost().getHostName());
             logger.info("Waiting for client on port " + serverSocket.getLocalPort() + "...");
             Socket server = serverSocket.accept();
