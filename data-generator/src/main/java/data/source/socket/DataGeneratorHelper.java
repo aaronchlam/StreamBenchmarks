@@ -29,22 +29,19 @@ public class DataGeneratorHelper extends Thread {
     private boolean putTs;
     private BlockingQueue<JSONObject> buffer;
     private AdsEvent adsEvent;
-    private Control control;
-    private DataGeneratorHelper(HashMap conf, BlockingQueue<JSONObject> buffer, Control control) throws IOException {
+    private DataGeneratorHelper(HashMap conf, BlockingQueue<JSONObject> buffer, int benchmarkCount) throws IOException {
         this.buffer = buffer;
-        this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString()) / new Integer(conf.get("datagenerator.count").toString());
+        this.benchmarkCount = benchmarkCount;
         this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
         this.blobSize = new Integer(conf.get("datagenerator.blobsize").toString());
         this.isRandomGeo = new Boolean(conf.get("datagenerator.israndomgeo").toString());
         this.putTs = new Boolean(conf.get("datagenerator.ts").toString());
         adsEvent = new AdsEvent(isRandomGeo, putTs, partition);
-        this.control = control;
     }
 
     public void run() {
         try {
             sendTuples(benchmarkCount);
-            control.stop = true;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -70,29 +67,24 @@ public class DataGeneratorHelper extends Thread {
 
     }
 
-    public static void execute(HashMap conf, Integer port, Double p)  {
+    public static void execute(HashMap conf, Integer port, Double p, int benchmarkCount, int generatorCount)  {
         partition = p;
 
         try {
-
             ServerSocket serverSocket = new ServerSocket(port);
             serverSocket.setSoTimeout(900000);
             System.out.println("Waiting for client on port " + serverSocket.getLocalPort() + "...");
             Socket server = serverSocket.accept();
             System.out.println("Just connected to " + server.getRemoteSocketAddress());
             PrintWriter out = new PrintWriter(server.getOutputStream(), true);
-            Integer generatorCount = new Integer(conf.get("datagenerator.count").toString());
-            int bufferSize = new Integer(conf.get("benchmarking.count").toString());
-            BlockingQueue<JSONObject> buffer = new ArrayBlockingQueue<JSONObject>(bufferSize);    // new LinkedBlockingQueue<>();
-            final Control control = new Control();
 
-
+            BlockingQueue<JSONObject> buffer = new ArrayBlockingQueue<JSONObject>(benchmarkCount);    // new LinkedBlockingQueue<>();
 
             for (int i = 0; i < generatorCount; i++) {
-                Thread generator = new DataGeneratorHelper(conf, buffer, control);
+                Thread generator = new DataGeneratorHelper(conf, buffer,benchmarkCount/generatorCount);
                 generator.start();
             }
-            Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
+            Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket, benchmarkCount);
             bufferReader.start();
         } catch (Exception e) {
             e.printStackTrace();
@@ -106,11 +98,11 @@ class BufferReader extends Thread {
     private PrintWriter out;
     private ServerSocket serverSocket;
     private int benchmarkCount;
-    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
+    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket, int benchmarkCount) {
         this.buffer = buffer;
         this.out = out;
         this.serverSocket = serverSocket;
-        this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString());
+        this.benchmarkCount =benchmarkCount;
         try {
             String logFile = conf.get("datasource.logs").toString();
             FileHandler fh = new FileHandler(logFile);
@@ -145,8 +137,3 @@ class BufferReader extends Thread {
 
     }
 }
-
-class Control {
-    public volatile boolean stop = false;
-}
-

@@ -18,7 +18,6 @@ public class DataGenerator extends Thread {
     private PrintWriter out;
 
     private DataGenerator(HashMap conf, PrintWriter out) throws IOException {
-        System.out.println("dede");
 
         List<String> urls = (List<String>) conf.get("datasourcesocket.helpers");
         bufReaders = new ArrayList<>();
@@ -26,7 +25,6 @@ public class DataGenerator extends Thread {
             String host = address.split(":")[0];
             Integer port = new Integer(address.split(":")[1]);
             Socket clientSocket = new Socket(host, port);
-            System.out.println("clientSocket " + clientSocket);
 
             InputStream inFromServer = clientSocket.getInputStream();
             DataInputStream reader = new DataInputStream(inFromServer);
@@ -43,7 +41,6 @@ public class DataGenerator extends Thread {
             while (true) {
                 for (BufferedReader bf : bufReaders) {
                     out.println(bf.readLine());
-                    System.out.println("dede");
                     count++;
                     if (count % 100000 == 0)
                         System.out.println(count + " tuples sent from buffer");
@@ -68,10 +65,13 @@ public class DataGenerator extends Thread {
 
     private static void startFeedServers(HashMap conf) throws Exception{
         List<String> urls = (List<String>) conf.get("datasourcesocket.helpers");
+        int benchmarkCount = new Integer(conf.get("benchmarking.count").toString())/ urls.size() ;
+        int generatorCount = new Integer(conf.get("datagenerator.count").toString());
+
         for (String address : urls) {
             Integer port = new Integer(address.split(":")[1]);
             Double partition = new Double(address.split(":")[2]);
-            Thread t = new StartFeedSockets(port,conf,partition);
+            Thread t = new StartFeedSockets(port,conf,partition,benchmarkCount,generatorCount);
             t.start();
         }
     }
@@ -102,14 +102,20 @@ class StartFeedSockets extends Thread {
     private int port;
     private HashMap conf;
     private Double partition;
-    public StartFeedSockets(Integer port, HashMap conf, Double partition) {
+    private int benchmarkCount;
+    private int generatorCount;
+
+    public StartFeedSockets(Integer port, HashMap conf, Double partition, int benchmarkCount, int generatorCount) {
         this.port = port;
         this.conf = conf;
         this.partition = partition;
+        this.benchmarkCount = benchmarkCount;
+        this.generatorCount = generatorCount;
+
     }
 
     public void run() {
-        DataGeneratorHelper.execute(conf, port, partition);
+        DataGeneratorHelper.execute(conf, port, partition, benchmarkCount, generatorCount);
     }
 }
 
