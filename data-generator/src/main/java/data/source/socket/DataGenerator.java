@@ -29,8 +29,8 @@ public class DataGenerator extends Thread {
     private boolean putTs;
     private BlockingQueue<JSONObject> buffer;
     private AdsEvent adsEvent;
-
-    private DataGenerator(HashMap conf, BlockingQueue<JSONObject> buffer) throws IOException {
+    private Control control;
+    private DataGenerator(HashMap conf, BlockingQueue<JSONObject> buffer, Control control) throws IOException {
         this.buffer = buffer;
         this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString()) / new Integer(conf.get("datagenerator.count").toString());
         this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
@@ -38,11 +38,13 @@ public class DataGenerator extends Thread {
         this.isRandomGeo = new Boolean(conf.get("datagenerator.israndomgeo").toString());
         this.putTs = new Boolean(conf.get("datagenerator.ts").toString());
         adsEvent = new AdsEvent(isRandomGeo, putTs, partition);
+        this.control = control;
     }
 
     public void run() {
         try {
             sendTuples(benchmarkCount);
+            control.stop = true;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -85,11 +87,12 @@ public class DataGenerator extends Thread {
         Integer generatorCount = new Integer(conf.get("datagenerator.count").toString());
         int bufferSize = new Integer(conf.get("benchmarking.count").toString());
         BlockingQueue<JSONObject> buffer = new ArrayBlockingQueue<JSONObject>(bufferSize);    // new LinkedBlockingQueue<>();
+        final Control control = new Control();
         try {
             for (int i = 0; i < generatorCount; i++) {
-                Thread generator = new DataGenerator(conf, buffer);
+                Thread generator = new DataGenerator(conf, buffer, control);
                 generator.start();
-                Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket, "Thread-" + i);
+                Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket, "Thread-" + i, control);
                 bufferReader.start();
             }
         } catch (Exception e) {
@@ -104,12 +107,14 @@ class BufferReader extends Thread {
     private PrintWriter out;
     private ServerSocket serverSocket;
     private String threadName;
+    private Control control;
 
-    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket, String name) {
+    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket, String name, Control control) {
         this.buffer = buffer;
         this.out = out;
         this.serverSocket = serverSocket;
         this.threadName = name;
+        this.control = control;
         try {
             String logFile = conf.get("datasource.logs").toString();
             FileHandler fh = new FileHandler(logFile);
@@ -125,7 +130,7 @@ class BufferReader extends Thread {
         try {
             long timeStart = System.currentTimeMillis();
             int count = 0;
-            while (!buffer.isEmpty()) {
+            while (!control.stop) {
                 JSONObject tuple = buffer.take();
                 if (count % 100000 == 0)
                     logger.info(count + " tuples left sent from buffer in Thread  " + threadName);
@@ -148,3 +153,8 @@ class BufferReader extends Thread {
 
     }
 }
+
+class Control {
+    public volatile boolean stop = false;
+}
+
