@@ -160,14 +160,8 @@ public class FlinkBenchmark {
             }
         });
 
-        DataStream<Tuple4<String, Long, Double, Long>> filteredStream = resultingStream.filter(new FilterFunction<Tuple4<String, Long, Double, Long>>() {
-            @Override
-            public boolean filter(Tuple4<String, Long, Double, Long> t) throws Exception {
-                return t.f2 > 0;
-            }
-        });
         String outputFile = conf.get("flink.output").toString();
-        filteredStream.addSink(new WriteSinkFunctionByMillis<Tuple4<String, Long, Double, Long>>(outputFile, new WriteFormatAsCsv(), flushRate));
+        resultingStream.addSink(new WriteSinkFunctionByMillis<Tuple4<String, Long, Double, Long>>(outputFile, new WriteFormatAsCsv(), flushRate));
 
     }
 
@@ -221,15 +215,9 @@ public class FlinkBenchmark {
             }
         });
 
-        DataStream<Tuple6<String, Long, Double, Double,Long, Long>> resultingStream = mappedStream.filter(new FilterFunction<Tuple6<String, Long, Double, Double, Long, Long>>() {
-            @Override
-            public boolean filter(Tuple6<String, Long, Double, Double, Long, Long> t) throws Exception {
-                return  t.f2 > 0 && t.f3 > 0;
-            }
-        });
 
         String outputFile = conf.get("flink.output").toString();
-        resultingStream.addSink(new WriteSinkFunctionByMillis<Tuple6<String, Long, Double, Double,Long, Long>>(outputFile, new WriteFormatAsCsv(), flushRate));
+        mappedStream.addSink(new WriteSinkFunctionByMillis<Tuple6<String, Long, Double, Double,Long, Long>>(outputFile, new WriteFormatAsCsv(), flushRate));
 
 
     }

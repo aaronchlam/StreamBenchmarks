@@ -71,28 +71,20 @@ object SparkBenchmark {
     }).window(Milliseconds(slidingWindowLength), Milliseconds(slidingWindowSlide))
 
 
-    val joinedStream  = windowedStream1.join(windowedStream2).map(t=>(t._1,
-      System.currentTimeMillis() -  Math.max(t._2._1._1, t._2._2._1),
+    val joinedStream = windowedStream1.join(windowedStream2).map(t => (t._1,
+      System.currentTimeMillis() - Math.max(t._2._1._1, t._2._2._1),
       if (t._2._1._2 < 0 || t._2._2._2 < 0) -100D else Math.abs(t._2._1._2 - t._2._2._2),
-      Math.max(t._2._1._1, t._2._2._1) ))
-    val resultStream = joinedStream.filter(t=> t._3 > 0)
+      Math.max(t._2._1._1, t._2._2._1)))
 
-//    val windowReduce1 = windowedStream1.reduceByKey((t1, t2) => new Tuple4[Long, Double, Double, Long](Math.max(t1._1, t2._1), Math.max(t1._2, t2._2), Math.min(t1._3, t2._3), t1._4 + t2._4))
-//    val windowReduce2 = windowedStream2.reduceByKey((t1, t2) => new Tuple4[Long, Double, Double, Long](Math.max(t1._1, t2._1), Math.max(t1._2, t2._2), Math.min(t1._3, t2._3), t1._4 + t2._4))
-//
-//    val joinedStream = windowReduce1
-//      .join(windowReduce2)
-//      .map(tuple => ((tuple._1), (Math.max(tuple._2._1._1, tuple._2._2._1), tuple._2._1._2 - tuple._2._1._3, tuple._2._2._2 - tuple._2._2._3   , (tuple._2._1._4 + tuple._2._2._4)/2)))
-    //.reduceByKey((t1,t2)=> (Math.max(t1._1,t2._1),Math.max(t1._2,t2._2), Math.min(t1._3,t2._3) ))
     val outputFile = commonConfig.get("spark.output").toString
-    resultStream.saveAsTextFiles(outputFile);
+    joinedStream.saveAsTextFiles(outputFile);
 
   }
 
   def keyedWindowedAggregationBenchmark(ssc: StreamingContext, commonConfig: java.util.HashMap[String, Any]) = {
     val slidingWindowLength = commonConfig.get("slidingwindow.length").toString().toInt
     val slidingWindowSlide = commonConfig.get("slidingwindow.slide").toString().toInt
-    val host: String =  commonConfig.get("datasourcesocket.singleHost").toString
+    val host: String = commonConfig.get("datasourcesocket.singleHost").toString
     val port = commonConfig.get("datasourcesocket.port").toString().toInt
 
     val socketDataSource: DStream[String] = ssc.receiverStream(new SocketReceiver(host, port))
@@ -117,9 +109,8 @@ object SparkBenchmark {
       })
     val mappedStream = windowedStream.map(tuple => new Tuple6[String, Long, Double, Double, Long, Long](tuple._1, System.currentTimeMillis() - tuple._2._1, tuple._2._2, tuple._2._3, tuple._2._4, tuple._2._1))
 
-    val resultStream = mappedStream.filter(t=> t._3>0 && t._4 > 0)
     val outputFile = commonConfig.get("spark.output").toString
-    resultStream.saveAsTextFiles(outputFile);
+    mappedStream.saveAsTextFiles(outputFile);
     // resultStream.print();
 
   }

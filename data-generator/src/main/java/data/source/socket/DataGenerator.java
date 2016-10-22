@@ -22,7 +22,6 @@ import java.util.logging.SimpleFormatter;
  */
 public class DataGenerator extends Thread {
     private int benchmarkCount;
-    private int warmupCount;
     private long sleepTime;
     private int blobSize;
     private boolean isRandomGeo;
@@ -33,8 +32,7 @@ public class DataGenerator extends Thread {
 
     private DataGenerator(HashMap conf, BlockingQueue<JSONObject> buffer) throws IOException {
         this.buffer = buffer;
-        this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString())/  new Integer(conf.get("datagenerator.count").toString()) ;
-        this.warmupCount = new Integer(conf.get("warmup.count").toString()) / new Integer(conf.get("datagenerator.count").toString());
+        this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString()) / new Integer(conf.get("datagenerator.count").toString());
         this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
         this.blobSize = new Integer(conf.get("datagenerator.blobsize").toString());
         this.isRandomGeo = new Boolean(conf.get("datagenerator.israndomgeo").toString());
@@ -44,38 +42,30 @@ public class DataGenerator extends Thread {
 
     public void run() {
         try {
-            sendTuples(warmupCount, true);
-            while (!buffer.isEmpty()) {
-                currentThread().sleep(8000);
-                System.out.println("sleeeeppppp");
-            }
-            sendTuples(benchmarkCount, false);
+            sendTuples(benchmarkCount);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
 
-    private void sendTuples(int tupleCount, boolean isWarmUp) {
+    private void sendTuples(int tupleCount) {
         long currTime = System.currentTimeMillis();
         for (int i = 0; i < tupleCount; ) {
             try {
                 if (sleepTime != 0)
                     Thread.sleep(sleepTime);
                 for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
-                    JSONObject tuple = adsEvent.generateJson(isWarmUp);
+                    JSONObject tuple = adsEvent.generateJson();
                     buffer.put(tuple);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
-        if (tupleCount != 0){
-            if (isWarmUp )
-                System.out.println("Warmup data rate is " + tupleCount / ((currTime - System.currentTimeMillis()) / 1000) + " ps");
-            else
-                System.out.println("Benchmark data rate is " + tupleCount / ((currTime - System.currentTimeMillis()) / 1000) + " ps");
-        }
+        long runtime = (currTime - System.currentTimeMillis()) / 1000;
+        System.out.println("Benchmark producer data rate is " + tupleCount / runtime + " ps");
+
     }
 
     public static void main(String[] args) throws Exception {
@@ -93,15 +83,15 @@ public class DataGenerator extends Thread {
         System.out.println("Just connected to " + server.getRemoteSocketAddress());
         PrintWriter out = new PrintWriter(server.getOutputStream(), true);
         Integer generatorCount = new Integer(conf.get("datagenerator.count").toString());
-        int bufferSize =   new Integer(conf.get("benchmarking.count").toString()) + new Integer(conf.get("warmup.count").toString());
-	 BlockingQueue<JSONObject> buffer = new ArrayBlockingQueue<JSONObject>(bufferSize);    // new LinkedBlockingQueue<>();
+        int bufferSize = new Integer(conf.get("benchmarking.count").toString());
+        BlockingQueue<JSONObject> buffer = new ArrayBlockingQueue<JSONObject>(bufferSize);    // new LinkedBlockingQueue<>();
         try {
-            for (int i = 0; i < generatorCount ; i++){
+            for (int i = 0; i < generatorCount; i++) {
                 Thread generator = new DataGenerator(conf, buffer);
                 generator.start();
+                Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket, "Thread-" + i);
+                bufferReader.start();
             }
-            Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
-            bufferReader.start();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -111,19 +101,15 @@ public class DataGenerator extends Thread {
 class BufferReader extends Thread {
     private BlockingQueue<JSONObject> buffer;
     private Logger logger = Logger.getLogger("MyLog");
-    private int bufferElements;
-    private long benchmarkCount;
     private PrintWriter out;
     private ServerSocket serverSocket;
-    private int generatorCount ;
+    private String threadName;
 
-    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
+    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket, String name) {
         this.buffer = buffer;
-        this.bufferElements = (new Integer(conf.get("benchmarking.count").toString()) + new Integer(conf.get("warmup.count").toString())) ;
-        this.benchmarkCount = new Long(conf.get("benchmarking.count").toString());
         this.out = out;
         this.serverSocket = serverSocket;
-        this.generatorCount =  new Integer(conf.get("datagenerator.count").toString()) ;
+        this.threadName = name;
         try {
             String logFile = conf.get("datasource.logs").toString();
             FileHandler fh = new FileHandler(logFile);
@@ -137,25 +123,20 @@ class BufferReader extends Thread {
 
     public void run() {
         try {
-            long timeStart = 0;
-            boolean warmupContinues = true;
-            for (long i = 0; i < bufferElements - generatorCount ; i++) {
+            long timeStart = System.currentTimeMillis();
+            int count = 0;
+            while (!buffer.isEmpty()) {
                 JSONObject tuple = buffer.take();
-                if (warmupContinues) {
-                    if (!tuple.getBoolean("isDummy")) {
-                        warmupContinues = false;
-                        timeStart = System.currentTimeMillis();
-                        logger.info("---WARMUP ENDED---  ");
-                    }
-                }
-                if (i % 100000 == 0)
-                    logger.info((bufferElements - i) + " tuples left in buffer  ");
+                if (count % 100000 == 0)
+                    logger.info(count + " tuples left sent from buffer in Thread  " + threadName);
                 out.println(tuple.toString());
+                count++;
             }
             long timeEnd = System.currentTimeMillis();
-            Long throughput = benchmarkCount / ((timeEnd - timeStart) / 1000);
-            logger.info("---BENCHMARK ENDED--- on " + (timeEnd - timeStart) / 1000 + " seconds with " + throughput + " throughput"
-                    + InetAddress.getLocalHost().getHostName());
+            long runtime = (timeEnd - timeStart) / 1000;
+            long throughput = count / runtime;
+            logger.info("---BENCHMARK ENDED--- on " + runtime + " seconds with " + throughput + " throughput in Thread " + threadName
+                    + " node : " + InetAddress.getLocalHost().getHostName());
             logger.info("Waiting for client on port " + serverSocket.getLocalPort() + "...");
             Socket server = serverSocket.accept();
 

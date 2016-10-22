@@ -50,7 +50,7 @@ public class AdsEvent {
             "UG", "UA", "AE", "UK", "US", "UM", "UY", "SU", "UZ", "VU", "VA", "VE", "VN", "VG", "VI", "WF", "EH", "YE", "ZM", "ZR", "ZW"};
     private String[] geoList = null;
 
-    public JSONObject generateJson(boolean isDummy) {
+    public JSONObject generateJson() {
         //date
         Date minDate = df.getDate(2016, 5, 1);
         Date maxDate = new Date();
@@ -86,13 +86,8 @@ public class AdsEvent {
         //price
         float minX = 5.0f;
         float maxX = 100.0f;
-        String price = null;
-        if (isDummy) {
-            price = "-100.0";
-        } else {
-            float finalX = rand.nextFloat() * (maxX - minX) + minX;
-            price = Float.toString(finalX);
-        }
+        float finalX = rand.nextFloat() * (maxX - minX) + minX;
+        String price = Float.toString(finalX);
 
         //id
         //  String aid1 = UUID.randomUUID().toString();
@@ -125,7 +120,6 @@ public class AdsEvent {
 
         json.put("m", m);
         if (putTs) json.put("ts", System.currentTimeMillis());
-        json.put("isDummy", isDummy);
         return json;
     }
 

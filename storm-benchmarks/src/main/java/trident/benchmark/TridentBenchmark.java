@@ -179,12 +179,6 @@ public class TridentBenchmark {
                                 new MinMaxAggregator(),
                                 new Fields("geo", "ts", "max_price", "min_price", "window_elements"))
                         .map(new FinalTS())
-                        .filter(new BaseFilter() {
-                            @Override
-                            public boolean isKeep(TridentTuple t) {
-                                return t.getDouble(2) > 0 && t.getDouble(3) > 0;
-                            }
-                        })
                         .partitionPersist(factory, hdfsFields, new HdfsUpdater(), new Fields());
         return topology.build();
     }
