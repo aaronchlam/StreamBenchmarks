@@ -10,7 +10,9 @@ import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.*;
 import java.util.logging.FileHandler;
@@ -86,15 +88,15 @@ public class DataGenerator extends Thread {
         PrintWriter out = new PrintWriter(server.getOutputStream(), true);
         Integer generatorCount = new Integer(conf.get("datagenerator.count").toString());
         int bufferSize = new Integer(conf.get("benchmarking.count").toString());
-        BlockingQueue<JSONObject> buffer = new ArrayBlockingQueue<JSONObject>(bufferSize);    // new LinkedBlockingQueue<>();
         final Control control = new Control();
         try {
             for (int i = 0; i < generatorCount; i++) {
+                BlockingQueue<JSONObject> buffer = new ArrayBlockingQueue<JSONObject>(bufferSize/generatorCount);    // new LinkedBlockingQueue<>();
                 Thread generator = new DataGenerator(conf, buffer, control);
                 generator.start();
+                Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
+                bufferReader.start();
             }
-            Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
-            bufferReader.start();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -107,11 +109,14 @@ class BufferReader extends Thread {
     private PrintWriter out;
     private ServerSocket serverSocket;
     private int benchmarkCount;
+    private int generatorCount;
     public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
         this.buffer = buffer;
         this.out = out;
         this.serverSocket = serverSocket;
         this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString());
+        this.generatorCount = new Integer(conf.get("datagenerator.count").toString());
+
         try {
             String logFile = conf.get("datasource.logs").toString();
             FileHandler fh = new FileHandler(logFile);
@@ -126,7 +131,7 @@ class BufferReader extends Thread {
     public void run() {
         try {
             long timeStart = System.currentTimeMillis();
-            for (int i = 0; i < benchmarkCount; i++) {
+            for (int i = 0; i < benchmarkCount/generatorCount; i++) {
                 JSONObject tuple = buffer.take();
                 if (i % 100000 == 0)
                     logger.info(i  + " tuples  sent from buffer");
