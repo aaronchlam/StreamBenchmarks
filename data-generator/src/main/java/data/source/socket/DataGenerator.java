@@ -14,23 +14,11 @@ import java.util.List;
  * Created by jeka01 on 02/09/16.
  */
 public class DataGenerator extends Thread {
-    private List<BufferedReader> bufReaders;
+    private BufferedReader in;
     private PrintWriter out;
 
-    private DataGenerator(HashMap conf, PrintWriter out) throws IOException {
-
-        List<String> urls = (List<String>) conf.get("datasourcesocket.helpers");
-        bufReaders = new ArrayList<>();
-        for (String address : urls) {
-            String host = address.split(":")[0];
-            Integer port = new Integer(address.split(":")[1]);
-            Socket clientSocket = new Socket(host, port);
-
-            InputStream inFromServer = clientSocket.getInputStream();
-            DataInputStream reader = new DataInputStream(inFromServer);
-            BufferedReader in = new BufferedReader(new InputStreamReader(reader, "UTF-8"));
-            bufReaders.add(in);
-        }
+    private DataGenerator(BufferedReader in, PrintWriter out) throws IOException {
+        this.in = in;
         this.out = out;
 
     }
@@ -39,12 +27,11 @@ public class DataGenerator extends Thread {
         try {
             int count = 0;
             while (true) {
-                for (BufferedReader bf : bufReaders) {
-                    out.println(bf.readLine());
-                    count++;
-                    if (count % 100000 == 0)
-                        System.out.println(count + " tuples sent from buffer");
-                }
+                out.println(in.readLine());
+                count++;
+                if (count % 100000 == 0)
+                    System.out.println(count + " tuples sent from buffer");
+
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -63,20 +50,20 @@ public class DataGenerator extends Thread {
 
     }
 
-    private static void startFeedServers(HashMap conf) throws Exception{
+    private static void startFeedServers(HashMap conf) throws Exception {
         List<String> urls = (List<String>) conf.get("datasourcesocket.helpers");
-        int benchmarkCount = new Integer(conf.get("benchmarking.count").toString())/ urls.size() ;
+        int benchmarkCount = new Integer(conf.get("benchmarking.count").toString()) / urls.size();
         int generatorCount = new Integer(conf.get("datagenerator.count").toString());
 
         for (String address : urls) {
             Integer port = new Integer(address.split(":")[1]);
             Double partition = new Double(address.split(":")[2]);
-            Thread t = new StartFeedSockets(port,conf,partition,benchmarkCount,generatorCount);
+            Thread t = new StartFeedSockets(port, conf, partition, benchmarkCount, generatorCount);
             t.start();
         }
     }
 
-    private static void startMainServer(HashMap conf) throws Exception{
+    private static void startMainServer(HashMap conf) throws Exception {
         Integer port = new Integer(conf.get("datasourcesocket.port").toString());
         ServerSocket serverSocket = new ServerSocket(port);
         serverSocket.setSoTimeout(900000);
@@ -86,14 +73,24 @@ public class DataGenerator extends Thread {
         PrintWriter out = new PrintWriter(server.getOutputStream(), true);
 
 
+
         try {
-            Thread generator = new DataGenerator(conf, out);
-            generator.start();
+            List<String> urls = (List<String>) conf.get("datasourcesocket.helpers");
+            for (String address : urls) {
+                String host = address.split(":")[0];
+                Integer feedPort = new Integer(address.split(":")[1]);
+                Socket clientSocket = new Socket(host, feedPort);
+
+                InputStream inFromServer = clientSocket.getInputStream();
+                DataInputStream reader = new DataInputStream(inFromServer);
+                BufferedReader in = new BufferedReader(new InputStreamReader(reader, "UTF-8"));
+                Thread generator = new DataGenerator(in, out);
+                generator.start();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
 
 
 }
