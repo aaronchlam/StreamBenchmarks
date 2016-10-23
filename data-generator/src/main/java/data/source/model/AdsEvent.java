@@ -26,7 +26,6 @@ public class AdsEvent {
         }
 
     }
-    private StringBuilder sb = new StringBuilder();
     private boolean isRandomGeo;
     private boolean putTs;
 
@@ -67,12 +66,12 @@ public class AdsEvent {
         float finalX = rand.nextFloat() * (maxX - minX) + minX;
         String price = Float.toString(finalX);
 
-        StringBuilder json = sb.append("{ \"geo\":\"").append(geo).append("\",\"price\":\"").append(price).append("\"");
+        String json = "{ \"geo\":\"" + geo + "\",\"price\":\"" + price + "\"";
 
         if (putTs){
-            return json.append(",\"ts\": \"").append(System.currentTimeMillis()).append("\"}").toString();
+            return json +  ",\"ts\": \"" + System.currentTimeMillis() + "\"}";
         } else {
-            return json.append("}").toString();
+            return json + "}";
         }
     }
 
