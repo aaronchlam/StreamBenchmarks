@@ -100,8 +100,8 @@ public class FlinkBenchmark {
             @Override
             public Tuple3<String, Long, Double> map(String s) throws Exception {
                 JSONObject obj = new JSONObject(s);
-                String geo = obj.getJSONObject("t").getString("geo");
-                Double price = obj.getJSONObject("m").getDouble("price");
+                String geo = obj.getString("geo");
+                Double price = obj.getDouble("price");
                 Long ts = obj.has("ts") ? obj.getLong("ts"):System.currentTimeMillis();
                 return new Tuple3<String, Long, Double>(geo, ts , price);
             }
@@ -116,8 +116,8 @@ public class FlinkBenchmark {
             @Override
             public Tuple3<String, Long, Double> map(String s) throws Exception {
                 JSONObject obj = new JSONObject(s);
-                String geo = obj.getJSONObject("t").getString("geo");
-                Double price = obj.getJSONObject("m").getDouble("price");
+                String geo = obj.getString("geo");
+                Double price = obj.getDouble("price");
                 Long ts = obj.has("ts") ? obj.getLong("ts"):System.currentTimeMillis();
                 return new Tuple3<String, Long, Double>(geo, ts , price);
             }
@@ -187,8 +187,8 @@ public class FlinkBenchmark {
                     @Override
                     public Tuple5<String, Long, Double, Double,Long> map(String s) throws Exception {
                         JSONObject obj = new JSONObject(s);
-                        String geo = obj.getJSONObject("t").getString("geo");
-                        Double price = obj.getJSONObject("m").getDouble("price");
+                        String geo = obj.getString("geo");
+                        Double price = obj.getDouble("price");
                         Long ts = obj.has("ts") ? obj.getLong("ts"):System.currentTimeMillis();
                         return new Tuple5<String, Long, Double, Double,Long>(geo, ts , price, price,1L);
                     }

@@ -2,7 +2,6 @@ package data.source.socket;
 
 import com.esotericsoftware.yamlbeans.YamlReader;
 import data.source.model.AdsEvent;
-import org.json.JSONObject;
 
 import java.io.FileReader;
 import java.io.IOException;
@@ -27,10 +26,10 @@ public class DataGenerator extends Thread {
     private boolean isRandomGeo;
     private static Double partition;
     private boolean putTs;
-    private BlockingQueue<JSONObject> buffer;
+    private BlockingQueue<String> buffer;
     private AdsEvent adsEvent;
     private Control control;
-    private DataGenerator(HashMap conf, BlockingQueue<JSONObject> buffer, Control control) throws IOException {
+    private DataGenerator(HashMap conf, BlockingQueue<String> buffer, Control control) throws IOException {
         this.buffer = buffer;
         this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString()) ;
         this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
@@ -58,8 +57,7 @@ public class DataGenerator extends Thread {
                 if (sleepTime != 0)
                     Thread.sleep(sleepTime);
                 for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
-                    JSONObject tuple = adsEvent.generateJson();
-                    buffer.put(tuple);
+                    buffer.put(adsEvent.generateJson());
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -85,7 +83,7 @@ public class DataGenerator extends Thread {
         System.out.println("Just connected to " + server.getRemoteSocketAddress());
         PrintWriter out = new PrintWriter(server.getOutputStream(), true);
         int bufferSize = new Integer(conf.get("benchmarking.count").toString());
-        BlockingQueue<JSONObject> buffer = new ArrayBlockingQueue<JSONObject>(bufferSize);    // new LinkedBlockingQueue<>();
+        BlockingQueue<String> buffer = new ArrayBlockingQueue<String>(bufferSize);    // new LinkedBlockingQueue<>();
         final Control control = new Control();
         try {
                 Thread generator = new DataGenerator(conf, buffer, control);
@@ -99,12 +97,12 @@ public class DataGenerator extends Thread {
 }
 
 class BufferReader extends Thread {
-    private BlockingQueue<JSONObject> buffer;
+    private BlockingQueue<String> buffer;
     private Logger logger = Logger.getLogger("MyLog");
     private PrintWriter out;
     private ServerSocket serverSocket;
     private int benchmarkCount;
-    public BufferReader(BlockingQueue<JSONObject> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
+    public BufferReader(BlockingQueue<String> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
         this.buffer = buffer;
         this.out = out;
         this.serverSocket = serverSocket;
@@ -124,10 +122,10 @@ class BufferReader extends Thread {
         try {
             long timeStart = System.currentTimeMillis();
             for (int i = 0; i < benchmarkCount; i++) {
-                JSONObject tuple = buffer.take();
+                String tuple = buffer.take();
                 if (i % 100000 == 0)
                     logger.info(i  + " tuples sent from buffer");
-                out.println(tuple.toString());
+                out.println(tuple);
                 //out.println("{\"date\":\"2016-07-24T11:11:22.000+0200\",\"s\":{\"iid\":\"b755e303-9947-4f3a-8b94-871f12853cab\",\"aid1\":\"0.6274461644229823\"},\"t\":{\"dt\":\"iPhone6\",\"geo\":\"AF\",\"osv\":\"4.4\",\"os\":\"Blackberry\",\"ip\":\"123.244.54.92\"},\"m\":{\"price\":\"87.69879\",\"SESSION_ID\":\"60\"}}");
             }
             long timeEnd = System.currentTimeMillis();

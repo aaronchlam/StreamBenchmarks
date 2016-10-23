@@ -56,16 +56,16 @@ object SparkBenchmark {
 
     val windowedStream1 = joinSource1.map(s => {
       val obj: JSONObject = new JSONObject(s)
-      val price: Double = obj.getJSONObject("m").getDouble("price")
-      val geo: String = obj.getJSONObject("t").getString("geo")
+      val price: Double = obj.getDouble("price")
+      val geo: String = obj.getString("geo")
       val ts: Long = if (obj.has("ts")) obj.getLong("ts") else System.currentTimeMillis();
       ((geo), (ts, price))
     }).window(Milliseconds(slidingWindowLength), Milliseconds(slidingWindowSlide))
 
     val windowedStream2 = joinSource2.map(s => {
       val obj: JSONObject = new JSONObject(s)
-      val price: Double = obj.getJSONObject("m").getDouble("price")
-      val geo: String = obj.getJSONObject("t").getString("geo")
+      val price: Double = obj.getDouble("price")
+      val geo: String = obj.getString("geo")
       val ts: Long = if (obj.has("ts")) obj.getLong("ts") else System.currentTimeMillis();
       ((geo), (ts, price))
     }).window(Milliseconds(slidingWindowLength), Milliseconds(slidingWindowSlide))
@@ -92,8 +92,8 @@ object SparkBenchmark {
 
     val keyedStream = socketDataSource.map(s => {
       val obj: JSONObject = new JSONObject(s)
-      val price: Double = obj.getJSONObject("m").getDouble("price")
-      val geo: String = obj.getJSONObject("t").getString("geo")
+      val price: Double = obj.getDouble("price")
+      val geo: String = obj.getString("geo")
       val ts: Long = if (obj.has("ts")) obj.getLong("ts") else System.currentTimeMillis();
 
       ((geo), (ts, price, price, 1L))

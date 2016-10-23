@@ -192,8 +192,8 @@ class SelectFields extends BaseFunction {
     @Override
     public void execute(TridentTuple tuple, TridentCollector collector) {
         JSONObject obj = new JSONObject(tuple.getString(0));
-        String geo = obj.getJSONObject("t").getString("geo");
-        Double price = obj.getJSONObject("m").getDouble("price");
+        String geo = obj.getString("geo");
+        Double price = obj.getDouble("price");
         Long ts = obj.has("ts") ? obj.getLong("ts") : System.currentTimeMillis();
        // System.out.println(obj.has("ts"));
         collector.emit(new Values(
