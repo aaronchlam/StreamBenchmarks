@@ -90,11 +90,21 @@ public class FlinkBenchmark {
         int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
         Long flushRate = new Long (conf.get("flush.rate").toString());
-        String host1 =  conf.get("datasourcesocket.joinHost1").toString();
-        String host2 =  conf.get("datasourcesocket.joinHost2").toString();
+        ArrayList<String> hosts = (ArrayList<String>) conf.get("datasourcesocket.hosts");
         Integer port = new Integer(conf.get("datasourcesocket.port").toString());
-        DataStreamSource<String> joinStream1 = env.socketTextStream(host1, port);;
-        DataStreamSource<String> joinStream2 = env.socketTextStream(host2, port);;
+
+        DataStream<String> joinStream1 = null;
+        DataStream<String> joinStream2 = null;
+
+        for (int i = 0; i < hosts.size(); i++) {
+            String host = hosts.get(i);
+            DataStream<String> socketSource_i = env.socketTextStream(host, port);
+            if (i % 2 == 0) {
+                joinStream1 = joinStream1 == null ? socketSource_i : joinStream1.union(socketSource_i);
+            } else {
+                joinStream2 = joinStream2 == null ? socketSource_i : joinStream2.union(socketSource_i);
+            }
+        }
 
         KeyedStream<Tuple3<String, Long, Double>,String> projectedStream1 = joinStream1.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
             @Override
@@ -178,10 +188,13 @@ public class FlinkBenchmark {
         int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
         Long flushRate = new Long (conf.get("flush.rate").toString());
-        String host =  conf.get("datasourcesocket.singleHost").toString();
+        ArrayList<String> hosts = (ArrayList<String>) conf.get("datasourcesocket.hosts");
         Integer port = new Integer(conf.get("datasourcesocket.port").toString());
-        DataStreamSource<String> socketSource = env.socketTextStream(host, port);
-	
+        DataStream<String> socketSource = null;
+        for (String host : hosts) {
+            DataStream<String> socketSource_i = env.socketTextStream(host, port);
+            socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);
+        }
 
         DataStream<Tuple5<String, Long, Double, Double,Long>> messageStream = socketSource.map(new MapFunction<String, Tuple5<String, Long, Double, Double,Long>>() {
                     @Override

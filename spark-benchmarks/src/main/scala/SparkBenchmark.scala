@@ -48,12 +48,21 @@ object SparkBenchmark {
   def windowedJoin(ssc: StreamingContext, commonConfig: java.util.HashMap[String, Any]) = {
     val slidingWindowLength = commonConfig.get("slidingwindow.length").toString().toInt
     val slidingWindowSlide = commonConfig.get("slidingwindow.slide").toString().toInt
-    val host1 = commonConfig.get("datasourcesocket.joinHost1").toString
-    val host2 = commonConfig.get("datasourcesocket.joinHost2").toString
+    val hosts = commonConfig.get("datasourcesocket.hosts").asInstanceOf[util.ArrayList[String]].toList
     val port = commonConfig.get("datasourcesocket.port").toString().toInt
-    val joinSource1: DStream[String] = ssc.receiverStream(new SocketReceiver(host1, port));
-    val joinSource2: DStream[String] = ssc.receiverStream(new SocketReceiver(host2, port));
 
+    var joinSource1: DStream[String] = null;
+    var joinSource2: DStream[String] = null;
+    for (hostIndex <- hosts.indices) {
+      val host = hosts.get(hostIndex)
+      val socketDataSource_i: DStream[String] = ssc.receiverStream(new SocketReceiver(host, port))
+      if (hostIndex % 2 == 1) {
+        joinSource1 = if (joinSource1 == null) socketDataSource_i else joinSource1.union(socketDataSource_i)
+      }
+      else {
+        joinSource2 = if (joinSource2 == null) socketDataSource_i else joinSource2.union(socketDataSource_i)
+      }
+    }
     val windowedStream1 = joinSource1.map(s => {
       val obj: JSONObject = new JSONObject(s)
       val price: Double = obj.getDouble("price")
@@ -84,10 +93,14 @@ object SparkBenchmark {
   def keyedWindowedAggregationBenchmark(ssc: StreamingContext, commonConfig: java.util.HashMap[String, Any]) = {
     val slidingWindowLength = commonConfig.get("slidingwindow.length").toString().toInt
     val slidingWindowSlide = commonConfig.get("slidingwindow.slide").toString().toInt
-    val host: String = commonConfig.get("datasourcesocket.singleHost").toString
+    val hosts: util.ArrayList[String] = commonConfig.get("datasourcesocket.hosts").asInstanceOf[util.ArrayList[String]]
     val port = commonConfig.get("datasourcesocket.port").toString().toInt
+    var socketDataSource: DStream[String] = null;
+    for (host <- hosts) {
+      val socketDataSource_i: DStream[String] = ssc.receiverStream(new SocketReceiver(host, port))
+      socketDataSource = if (socketDataSource == null) socketDataSource_i else socketDataSource.union(socketDataSource_i)
+    }
 
-    val socketDataSource: DStream[String] = ssc.receiverStream(new SocketReceiver(host, port))
 
 
     val keyedStream = socketDataSource.map(s => {

@@ -54,16 +54,16 @@ public class TridentBenchmark {
         if (runningMode.equals("cluster")) {
             if (usecase.equals("KeyedWindowedAggregation"))
                 StormSubmitter.submitTopologyWithProgressBar(args[2], conf, keyedWindowedAggregation(commonConfig));
-            else if(usecase.equals("WindowedJoin"))
+            else if (usecase.equals("WindowedJoin"))
                 StormSubmitter.submitTopologyWithProgressBar(args[2], conf, windowedJoin(commonConfig));
 
         } else {
             LocalCluster cluster = new LocalCluster();
-           conf.setNumWorkers(10);
-           conf.setNumAckers(10); 
-	   if (usecase.equals("KeyedWindowedAggregation"))
-		cluster.submitTopology(args[2], conf, keyedWindowedAggregation(commonConfig));
-	    else if(usecase.equals("WindowedJoin"))
+            conf.setNumWorkers(10);
+            conf.setNumAckers(10);
+            if (usecase.equals("KeyedWindowedAggregation"))
+                cluster.submitTopology(args[2], conf, keyedWindowedAggregation(commonConfig));
+            else if (usecase.equals("WindowedJoin"))
                 cluster.submitTopology(args[2], conf, windowedJoin(commonConfig));
 
         }
@@ -124,9 +124,9 @@ public class TridentBenchmark {
                         new Fields("geo", "ts", "max_price", "min_price"),
                         new MinMaxAggregator(),
                         new Fields("geo", "ts", "max_price", "min_price", "window_elements"))
-        .partitionPersist(new MemoryMapState.Factory(),
-                new Fields("geo", "ts", "max_price", "min_price", "window_elements"),
-                new WindowUpdater());
+                .partitionPersist(new MemoryMapState.Factory(),
+                        new Fields("geo", "ts", "max_price", "min_price", "window_elements"),
+                        new WindowUpdater());
 
 
         return topology.build();
@@ -135,7 +135,7 @@ public class TridentBenchmark {
 
     private static StormTopology keyedWindowedAggregation(HashMap commonConfig) throws Exception {
         Integer port = new Integer(commonConfig.get("datasourcesocket.port").toString());
-        String  host = commonConfig.get("datasourcesocket.singleHost").toString();
+        ArrayList<String> hosts = (ArrayList<String>) commonConfig.get("datasourcesocket.hosts");
         int tridentBatchSize = new Integer(commonConfig.get("trident.batchsize").toString());
         String hdfsUrl = commonConfig.get("output.hdfs.url").toString();
         String outputPath = commonConfig.get("trident.output").toString();
@@ -165,11 +165,17 @@ public class TridentBenchmark {
 
         StateFactory factory = new HdfsStateFactory().withOptions(options);
 
-
+        ArrayList<Stream> streams = new ArrayList<>();
+        for (int i = 0; i < hosts.size(); i++) {
+            String host = hosts.get(i);
+            IBatchSpout spout = new SocketBatchSpout(tridentBatchSize, host, port);
+            Stream socketStream_i = topology.newStream("aggregation" + i, spout);
+            streams.add(socketStream_i);
+        }
 
         TridentState countState =
                 topology
-                        .newStream("spout",new SocketBatchSpout(tridentBatchSize, host, port))
+                        .merge(streams)
                         .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price"))
                         .partitionBy(new Fields("geo")).parallelismHint(160)
                         .slidingWindow(new BaseWindowedBolt.Duration(slideWindowLength, TimeUnit.MILLISECONDS),
@@ -195,7 +201,7 @@ class SelectFields extends BaseFunction {
         String geo = obj.getString("geo");
         Double price = obj.getDouble("price");
         Long ts = obj.has("ts") ? obj.getLong("ts") : System.currentTimeMillis();
-       // System.out.println(obj.has("ts"));
+        // System.out.println(obj.has("ts"));
         collector.emit(new Values(
                 geo,
                 ts,
@@ -238,7 +244,7 @@ class MinMaxAggregator extends BaseAggregator<Map<String, State>> {
     public void complete(Map<String, State> partitionState, TridentCollector tridentCollector) {
         for (String partition : partitionState.keySet()) {
             State state = partitionState.get(partition);
-           // System.out.println(partition + " - " + state.ts + " - " + state.max + " - " + state.min + " - " + state.window_elements);
+            // System.out.println(partition + " - " + state.ts + " - " + state.max + " - " + state.min + " - " + state.window_elements);
             tridentCollector.emit(new Values(partition, state.ts, state.max, state.min, state.window_elements));
         }
 
@@ -305,12 +311,12 @@ class WindowUpdater extends BaseStateUpdater<MemoryMapState<TridentTuple>> {
     @Override
     public void updateState(MemoryMapState<TridentTuple> mapState, List<TridentTuple> list, TridentCollector tridentCollector) {
         List<Object> geos = new ArrayList<Object>();
-        for(TridentTuple tp : list){
+        for (TridentTuple tp : list) {
             geos.add(tp.getString(0));
             //System.out.println(tp.getString(0));
         }
-        Iterator dd =  mapState.getTuples();
-        mapState.multiPut(Arrays.asList(geos),list);
+        Iterator dd = mapState.getTuples();
+        mapState.multiPut(Arrays.asList(geos), list);
 
     }
 }
