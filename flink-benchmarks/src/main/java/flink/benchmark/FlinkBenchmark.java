@@ -61,6 +61,7 @@ public class FlinkBenchmark {
         //TODO parametertool, checkpoint flush rate, kafka zookeeper configurations
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.disableOperatorChaining();
         env.setBufferTimeout(flushRate);
         env.setParallelism(parallelism);
         env.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
