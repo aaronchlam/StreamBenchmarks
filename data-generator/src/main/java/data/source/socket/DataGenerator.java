@@ -125,7 +125,6 @@ class BufferReader extends Thread {
                 String tuple = buffer.take();
                 if (i % 100000 == 0)
                     logger.info(i  + " tuples sent from buffer");
-                System.out.println(tuple);
                 out.println(tuple);
             }
             long timeEnd = System.currentTimeMillis();
