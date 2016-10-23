@@ -149,7 +149,7 @@ def start_data_generators():
 
 
 def start_data_generator(partition):
-	sp.call(['java','-Xms9120m' ,   '-cp', project_dir + 'data-generator/target/data-generator-0.1.0.jar', 'data.source.socket.DataGenerator', project_dir + 'conf/benchmarkConf.yaml',''+partition ])
+	sp.call(['java','-Xms20g' ,'-Xmx40g',   '-cp', project_dir + 'data-generator/target/data-generator-0.1.0.jar', 'data.source.socket.DataGenerator', project_dir + 'conf/benchmarkConf.yaml',''+partition ])
 
 
 
