@@ -3,14 +3,12 @@ package data.source.socket;
 import com.esotericsoftware.yamlbeans.YamlReader;
 import data.source.model.AdsEvent;
 
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
-import java.util.concurrent.BlockingQueue;
+import java.util.Iterator;
 import java.util.concurrent.*;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
@@ -28,39 +26,57 @@ public class DataGenerator extends Thread {
     private boolean putTs;
     private BlockingQueue<String> buffer;
     private AdsEvent adsEvent;
-    private Control control;
-    private DataGenerator(HashMap conf, BlockingQueue<String> buffer, Control control) throws IOException {
+    private HashMap<Long, Integer> bufferSizeAtTime = new HashMap<>();
+    private  String statisticsFile;
+    private int statisticsPeriod;
+    private DataGenerator(HashMap conf, BlockingQueue<String> buffer) throws IOException {
         this.buffer = buffer;
-        this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString()) ;
+        this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString());
         this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
         this.blobSize = new Integer(conf.get("datagenerator.blobsize").toString());
         this.isRandomGeo = new Boolean(conf.get("datagenerator.israndomgeo").toString());
         this.putTs = new Boolean(conf.get("datagenerator.ts").toString());
         adsEvent = new AdsEvent(isRandomGeo, putTs, partition);
-        this.control = control;
+        statisticsFile = conf.get("datagenerator.statistics.buffer").toString();
+        statisticsPeriod = new Integer(conf.get("datagenerator.statistics.period").toString());
     }
 
     public void run() {
         try {
+            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+            scheduler.scheduleAtFixedRate(new Runnable() {
+                @Override
+                public void run() {
+                    long interval = (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()) / statisticsPeriod ) * statisticsPeriod;
+                    int bufferSize = buffer.size();
+                    bufferSizeAtTime.put(interval, bufferSize);
+                }
+            }, 0, statisticsPeriod - 2, TimeUnit.SECONDS);
+
+
             sendTuples(benchmarkCount);
-            control.stop = true;
+            BufferReader.writeHashMapToCsv(bufferSizeAtTime, statisticsFile);
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
 
-    private void sendTuples(int tupleCount) {
+    private void sendTuples(int tupleCount) throws Exception {
         long currTime = System.currentTimeMillis();
-        for (int i = 0; i < tupleCount; ) {
-            try {
-                if (sleepTime != 0)
-                    Thread.sleep(sleepTime);
+        if (sleepTime != 0) {
+            for (int i = 0; i < tupleCount; ) {
+                Thread.sleep(sleepTime);
                 for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
                     buffer.put(adsEvent.generateJson());
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
+            }
+        } else {
+            for (int i = 0; i < tupleCount; ) {
+                for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
+                    buffer.put(adsEvent.generateJson());
+                }
             }
         }
         long runtime = (currTime - System.currentTimeMillis()) / 1000;
@@ -84,10 +100,9 @@ public class DataGenerator extends Thread {
         PrintWriter out = new PrintWriter(server.getOutputStream(), true);
         int bufferSize = new Integer(conf.get("benchmarking.count").toString());
         BlockingQueue<String> buffer = new ArrayBlockingQueue<String>(bufferSize);    // new LinkedBlockingQueue<>();
-        final Control control = new Control();
         try {
-                Thread generator = new DataGenerator(conf, buffer, control);
-                generator.start();
+            Thread generator = new DataGenerator(conf, buffer);
+            generator.start();
             Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
             bufferReader.start();
         } catch (Exception e) {
@@ -102,6 +117,12 @@ class BufferReader extends Thread {
     private PrintWriter out;
     private ServerSocket serverSocket;
     private int benchmarkCount;
+    private int thourhputIndex;
+    private int thourhputPrevVal = 0;
+    private  String statisticsFile;
+    private int statisticsPeriod;
+
+    private HashMap<Long,Integer> thoughputCount = new HashMap<>();
     public BufferReader(BlockingQueue<String> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
         this.buffer = buffer;
         this.out = out;
@@ -116,20 +137,34 @@ class BufferReader extends Thread {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        statisticsFile = conf.get("datagenerator.statistics.thoughput").toString();
+        statisticsPeriod = new Integer(conf.get("datagenerator.statistics.period").toString());
     }
 
     public void run() {
         try {
             long timeStart = System.currentTimeMillis();
-            for (int i = 0; i < benchmarkCount; i++) {
+
+            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+            scheduler.scheduleAtFixedRate(new Runnable() {
+                @Override
+                public void run() {
+                    long period = (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()) / statisticsPeriod) * statisticsPeriod;
+                    thoughputCount.put(period, thourhputIndex - thourhputPrevVal);
+                    thourhputPrevVal = thourhputIndex;
+                    logger.info(thourhputIndex + " tuples sent from buffer");
+                }
+            }, 0, statisticsPeriod-2, TimeUnit.SECONDS);
+
+
+            for (thourhputIndex = 0; thourhputIndex < benchmarkCount; thourhputIndex++) {
                 String tuple = buffer.take();
-                if (i % 1000000 == 0)
-                    logger.info(i  + " tuples sent from buffer");
                 out.println(tuple);
             }
             long timeEnd = System.currentTimeMillis();
             long runtime = (timeEnd - timeStart) / 1000;
             long throughput = benchmarkCount / runtime;
+            BufferReader.writeHashMapToCsv(thoughputCount,statisticsFile);
             logger.info("---BENCHMARK ENDED--- on " + runtime + " seconds with " + throughput + " throughput "
                     + " node : " + InetAddress.getLocalHost().getHostName());
             logger.info("Waiting for client on port " + serverSocket.getLocalPort() + "...");
@@ -142,9 +177,27 @@ class BufferReader extends Thread {
 
 
     }
+
+    public static void writeHashMapToCsv(HashMap<Long, Integer> hm, String path)  {
+        try{
+            File file = new File(path);
+            if (file.exists()) {
+                file.delete(); //you might want to check if delete was successfull
+            }
+            file.createNewFile();
+            FileOutputStream fileOutput = new FileOutputStream(file);
+            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fileOutput));
+            Iterator it = hm.entrySet().iterator();
+            while (it.hasNext()) {
+                HashMap.Entry pair = (HashMap.Entry)it.next();
+                bw.write(pair.getKey()+ "," + pair.getValue() + "\n");
+            }
+            bw.flush();
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
+    }
 }
 
-class Control {
-    public volatile boolean stop = false;
-}
 

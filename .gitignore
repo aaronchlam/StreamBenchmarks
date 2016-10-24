@@ -5,3 +5,7 @@ download-cache/**
 download-cache
 output/
 conf/
+logs/
+.idea/
+flink-benchmarks/flink-benchmarks.iml
+spark-benchmarks/spark-benchmarks.iml
