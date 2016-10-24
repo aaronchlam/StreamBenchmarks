@@ -180,7 +180,8 @@ class BufferReader extends Thread {
 
     public static void writeHashMapToCsv(HashMap<Long, Integer> hm, String path)  {
         try{
-            File file = new File(path);
+            File file = new File(path.split("\\.")[0]+ "-" + InetAddress.getLocalHost().getHostName() + ".csv");
+
             if (file.exists()) {
                 file.delete(); //you might want to check if delete was successfull
             }
