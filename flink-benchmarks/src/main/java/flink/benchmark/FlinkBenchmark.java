@@ -27,6 +27,7 @@ import org.apache.flink.streaming.api.functions.sink.WriteSinkFunctionByMillis;
 import org.apache.flink.streaming.api.windowing.assigners.SlidingProcessingTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
+import org.apache.flink.streaming.connectors.fs.RollingSink;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,14 +57,11 @@ public class FlinkBenchmark {
 
         String benchmarkUseCase = conf.get("benchmarking.usecase").toString();
 	    Long flushRate = new Long (conf.get("flush.rate").toString());
-        int parallelism =  new Integer(conf.get("parallelism.default").toString());
 
         //TODO parametertool, checkpoint flush rate, kafka zookeeper configurations
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.disableOperatorChaining();
         env.setBufferTimeout(flushRate);
-        env.setParallelism(parallelism);
         env.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
 
 
@@ -225,13 +223,18 @@ public class FlinkBenchmark {
         DataStream<Tuple6<String, Long, Double, Double,Long,Long>> mappedStream = aggregatedStream.map(new MapFunction<Tuple5<String, Long, Double, Double,Long>, Tuple6<String, Long, Double, Double,Long, Long>>() {
             @Override
             public Tuple6<String, Long, Double, Double,Long,Long> map(Tuple5<String, Long, Double, Double,Long> t1) throws Exception {
+                System.out.println(t1);
                 return new Tuple6<String, Long, Double, Double,Long, Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2, t1.f3,t1.f4, t1.f1);
             }
         });
 
 
         String outputFile = conf.get("flink.output").toString();
-        mappedStream.addSink(new WriteSinkFunctionByMillis<Tuple6<String, Long, Double, Double,Long, Long>>(outputFile, new WriteFormatAsCsv(), flushRate));
+
+        RollingSink sink = new RollingSink<String>(outputFile);
+        sink.setBatchSize(1024 * 54); // this is 400 MB,
+
+        mappedStream.addSink(sink);
 
 
     }

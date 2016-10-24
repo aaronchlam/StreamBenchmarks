@@ -123,7 +123,7 @@ class BufferReader extends Thread {
             long timeStart = System.currentTimeMillis();
             for (int i = 0; i < benchmarkCount; i++) {
                 String tuple = buffer.take();
-                if (i % 100000 == 0)
+                if (i % 1000000 == 0)
                     logger.info(i  + " tuples sent from buffer");
                 out.println(tuple);
             }
