@@ -106,6 +106,8 @@ def concat_files_in_dir(input_dir, output_dir):
 
 	with open(output_dir, "wb") as outfile:
     		for f in read_files:
+			if ('_temporary' in f):
+				continue
         		with open(f, "rb") as infile:
             			outfile.write(infile.read().replace('(', '').replace(')', ''))
 
