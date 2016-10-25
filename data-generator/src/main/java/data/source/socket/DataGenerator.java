@@ -68,7 +68,7 @@ public class DataGenerator extends Thread {
                     buffer.put(adsEvent.generateJson());
                     if (i % statisticsPeriod == 0){
                         long interval = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
-                        int bufferSize = buffer.remainingCapacity();
+                        int bufferSize = buffer.size();
                         bufferSizeAtTime.put(interval, bufferSize);
                         dataGenRate.put(interval, i - tempVal);
                         tempVal = i;
@@ -91,7 +91,6 @@ public class DataGenerator extends Thread {
         }
         long runtime = (currTime - System.currentTimeMillis()) / 1000;
         System.out.println("Benchmark producer data rate is " + tupleCount / runtime + " ps");
-
     }
 
     public static void main(String[] args) throws Exception {
