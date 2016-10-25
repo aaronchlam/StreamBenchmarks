@@ -176,7 +176,7 @@ public class TridentBenchmark {
                 topology
                         .merge(streams)
                         .each(new Fields("json"), new SelectFields(), new Fields("geo", "ts", "max_price", "min_price"))
-                        .partitionBy(new Fields("geo")).parallelismHint(160)
+                        .partitionBy(new Fields("geo"))
                         .slidingWindow(new BaseWindowedBolt.Duration(slideWindowLength, TimeUnit.MILLISECONDS),
                                 new BaseWindowedBolt.Duration(slideWindowSlide, TimeUnit.MILLISECONDS),
                                 new InMemoryWindowsStoreFactory(),
