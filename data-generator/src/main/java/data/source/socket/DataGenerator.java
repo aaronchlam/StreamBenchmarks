@@ -29,7 +29,7 @@ public class DataGenerator extends Thread {
     private HashMap<Long, Integer> bufferSizeAtTime = new HashMap<>();
     private  String statisticsBufferSizeFile;
     private int statisticsPeriod;
-    private int dataRateIndex;
+    private int dataRateIndex = 0;
     private int dataRateIndexPrevVal = 0;
 
     private HashMap<Long,Integer> dataGenRate = new HashMap<>();
@@ -58,9 +58,10 @@ public class DataGenerator extends Thread {
                     long interval = (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()) / statisticsPeriod ) * statisticsPeriod;
                     int bufferSize = buffer.size();
                     bufferSizeAtTime.put(interval, bufferSize);
+                    dataGenRate.put(interval, dataRateIndex - dataRateIndexPrevVal);
+                    dataRateIndexPrevVal = dataRateIndex;
                 }
             }, 0, statisticsPeriod - 2, TimeUnit.SECONDS);
-
 
             sendTuples(benchmarkCount);
             BufferReader.writeHashMapToCsv(bufferSizeAtTime, statisticsBufferSizeFile);
@@ -74,27 +75,19 @@ public class DataGenerator extends Thread {
 
     private void sendTuples(int tupleCount) throws Exception {
         long currTime = System.currentTimeMillis();
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-        scheduler.scheduleAtFixedRate(new Runnable() {
-            @Override
-            public void run() {
-                long period = (TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()) / statisticsPeriod) * statisticsPeriod;
-                dataGenRate.put(period, dataRateIndex - dataRateIndexPrevVal);
-                dataRateIndexPrevVal = dataRateIndex;
-            }
-        }, 0, statisticsPeriod-2, TimeUnit.SECONDS);
-
         if (sleepTime != 0) {
-            for (dataRateIndex = 0; dataRateIndex < tupleCount; ) {
+            for (int i = 0; i < tupleCount; ) {
                 Thread.sleep(sleepTime);
-                for (int b = 0; b < blobSize && dataRateIndex < tupleCount; b++, dataRateIndex++) {
+                for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
                     buffer.put(adsEvent.generateJson());
+                    dataRateIndex = i;
                 }
             }
         } else {
-            for (dataRateIndex = 0; dataRateIndex < tupleCount; ) {
-                for (int b = 0; b < blobSize && dataRateIndex < tupleCount; b++, dataRateIndex++) {
+            for (int i = 0; i < tupleCount; ) {
+                for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
                     buffer.put(adsEvent.generateJson());
+                    dataRateIndex = i;
                 }
             }
         }
@@ -136,7 +129,7 @@ class BufferReader extends Thread {
     private PrintWriter out;
     private ServerSocket serverSocket;
     private int benchmarkCount;
-    private int thourhputIndex;
+    private int thourhputIndex = 0;
     private int thourhputPrevVal = 0;
     private  String statisticsThroughputFile;
     private int statisticsPeriod;
@@ -176,9 +169,10 @@ class BufferReader extends Thread {
             }, 0, statisticsPeriod-2, TimeUnit.SECONDS);
 
 
-            for (thourhputIndex = 0; thourhputIndex < benchmarkCount; thourhputIndex++) {
+            for (int i = 0; i < benchmarkCount; i++) {
                 String tuple = buffer.take();
                 out.println(tuple);
+                thourhputIndex = i;
             }
             long timeEnd = System.currentTimeMillis();
             long runtime = (timeEnd - timeStart) / 1000;
