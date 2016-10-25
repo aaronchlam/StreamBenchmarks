@@ -33,6 +33,7 @@ def stop_flink():
 
 def flink_benchmark():
 	clear_dir(project_dir + "output/flink/")
+	clear_dir(project_dir + "output/stats/flink/")
 	sp.call([flink_home + "bin/flink" , "run", project_dir + "flink-benchmarks/target/flink-benchmarks-0.1.0.jar", "--confPath",conf_file])	
 
 def start_spark():
