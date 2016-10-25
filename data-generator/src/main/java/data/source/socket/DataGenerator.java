@@ -34,9 +34,9 @@ public class DataGenerator extends Thread {
 
     private HashMap<Long,Integer> dataGenRate = new HashMap<>();
     private  String statisticsDataRateFile;
+    private ScheduledExecutorService scheduler;
 
-
-    private DataGenerator(HashMap conf, BlockingQueue<String> buffer) throws IOException {
+    private DataGenerator(HashMap conf, BlockingQueue<String> buffer, ScheduledExecutorService scheduler) throws IOException {
         this.buffer = buffer;
         this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString());
         this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
@@ -47,11 +47,11 @@ public class DataGenerator extends Thread {
         statisticsBufferSizeFile = conf.get("datagenerator.statistics.buffer").toString();
         statisticsPeriod = new Integer(conf.get("datagenerator.statistics.period").toString());
         statisticsDataRateFile = conf.get("datagenerator.statistics.datarate").toString();
+        this.scheduler = scheduler;
     }
 
     public void run() {
         try {
-            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
             scheduler.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {
@@ -61,7 +61,7 @@ public class DataGenerator extends Thread {
                     dataGenRate.put(interval, dataRateIndex - dataRateIndexPrevVal);
                     dataRateIndexPrevVal = dataRateIndex;
                 }
-            }, 0, statisticsPeriod - 2, TimeUnit.SECONDS);
+            }, 0, statisticsPeriod - 3, TimeUnit.SECONDS);
 
             sendTuples(benchmarkCount);
             BufferReader.writeHashMapToCsv(bufferSizeAtTime, statisticsBufferSizeFile);
@@ -112,10 +112,11 @@ public class DataGenerator extends Thread {
         PrintWriter out = new PrintWriter(server.getOutputStream(), true);
         int bufferSize = new Integer(conf.get("benchmarking.count").toString());
         BlockingQueue<String> buffer = new ArrayBlockingQueue<String>(bufferSize);    // new LinkedBlockingQueue<>();
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
         try {
-            Thread generator = new DataGenerator(conf, buffer);
+            Thread generator = new DataGenerator(conf, buffer, scheduler);
             generator.start();
-            Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket);
+            Thread bufferReader = new BufferReader(buffer, conf, out, serverSocket, scheduler);
             bufferReader.start();
         } catch (Exception e) {
             e.printStackTrace();
@@ -134,8 +135,8 @@ class BufferReader extends Thread {
     private  String statisticsThroughputFile;
     private int statisticsPeriod;
     private HashMap<Long,Integer> thoughputCount = new HashMap<>();
-
-    public BufferReader(BlockingQueue<String> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
+    private  ScheduledExecutorService scheduler;
+    public BufferReader(BlockingQueue<String> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket, ScheduledExecutorService scheduler) {
         this.buffer = buffer;
         this.out = out;
         this.serverSocket = serverSocket;
@@ -151,13 +152,12 @@ class BufferReader extends Thread {
         }
         statisticsThroughputFile = conf.get("datagenerator.statistics.thoughput").toString();
         statisticsPeriod = new Integer(conf.get("datagenerator.statistics.period").toString());
+        this.scheduler = scheduler;
     }
 
     public void run() {
         try {
             long timeStart = System.currentTimeMillis();
-
-            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
             scheduler.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {
@@ -166,7 +166,7 @@ class BufferReader extends Thread {
                     thourhputPrevVal = thourhputIndex;
                     logger.info(thourhputIndex + " tuples sent from buffer");
                 }
-            }, 0, statisticsPeriod-2, TimeUnit.SECONDS);
+            }, 0, statisticsPeriod-3, TimeUnit.SECONDS);
 
 
             for (int i = 0; i < benchmarkCount; i++) {
