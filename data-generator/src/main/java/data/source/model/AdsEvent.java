@@ -53,7 +53,7 @@ public class AdsEvent {
         //geo
         String geo = null;
         if (isRandomGeo) {
-            geo = geoList[ThreadLocalRandom.current().nextInt(0, geoList.length)];
+            geo = geoList[rand.nextInt(geoList.length-1)];
         } else {
             geoIndex = geoIndex % geoList.length;
             geo = geoList[geoIndex];
