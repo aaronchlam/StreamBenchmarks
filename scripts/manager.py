@@ -51,6 +51,7 @@ def clear_dir(path):
 
 def spark_benchmark():
 	clear_dir(project_dir + "output/spark/")
+	clear_dir(project_dir + "output/stats/spark/")
 	sp.call([spark_home + 'bin/spark-submit' ,'--class' ,'spark.benchmark.SparkBenchmark', project_dir + 'spark-benchmarks/target/spark-benchmarks-0.1.0.jar' , conf_file])
 
 def start_zookeeper():
@@ -106,7 +107,7 @@ def concat_files_in_dir(input_dir, output_dir):
 	with open(output_dir, "wb") as outfile:
     		for f in read_files:
         		with open(f, "rb") as infile:
-            			outfile.write(infile.read())
+            			outfile.write(infile.read().replace('(', '').replace(')', ''))
 
 
 def parse_conf_file():
@@ -181,9 +182,11 @@ if(len(sys.argv[1:]) == 1):
 	elif(arg == "storm-benchmark"):
 		storm_benchmark()
 	elif(arg == "concat-spark"):
-		concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/spark/*/*', '/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/results/tempfile.csv')
+		concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/spark/*/*', '/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/spark_temp.csv')
 	elif(arg == "concat-trident"):
-		 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/trident/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/results/tridentFile.csv')
+		 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/trident/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/trident_temp.csv')
+	elif(arg == "concat-flink"):
+                concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/flink/*/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/flink_temp.csv')
 	elif(arg == "start-datagenerators"):
 		start_data_generators()
 elif(len(sys.argv[1:]) == 2):
