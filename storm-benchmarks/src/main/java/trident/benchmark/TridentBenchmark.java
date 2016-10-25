@@ -140,7 +140,6 @@ public class TridentBenchmark {
         String hdfsUrl = commonConfig.get("output.hdfs.url").toString();
         String outputPath = commonConfig.get("trident.output").toString();
         Float fileRotationSize = Float.parseFloat(commonConfig.get("file.rotation.size").toString());
-        int parallelism = new Integer(commonConfig.get("max.partitions").toString());
         int slideWindowLength = new Integer(commonConfig.get("slidingwindow.length").toString());
         int slideWindowSlide = new Integer(commonConfig.get("slidingwindow.slide").toString());
 
