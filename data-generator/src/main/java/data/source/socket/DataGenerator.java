@@ -9,7 +9,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
@@ -25,7 +24,7 @@ public class DataGenerator extends Thread {
     private boolean isRandomGeo;
     private static Double partition;
     private boolean putTs;
-    private Queue<String> buffer;
+    private BlockingQueue<String> buffer;
     private AdsEvent adsEvent;
     private HashMap<Long, Integer> bufferSizeAtTime = new HashMap<>();
     private  String statisticsBufferSizeFile;
@@ -34,7 +33,7 @@ public class DataGenerator extends Thread {
     private HashMap<Long,Integer> dataGenRate = new HashMap<>();
     private  String statisticsDataRateFile;
 
-    private DataGenerator(HashMap conf, Queue<String> buffer) throws IOException {
+    private DataGenerator(HashMap conf, BlockingQueue<String> buffer) throws IOException {
         this.buffer = buffer;
         this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString());
         this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
@@ -66,7 +65,7 @@ public class DataGenerator extends Thread {
             for (int i = 0; i < tupleCount; ) {
                 Thread.sleep(sleepTime);
                 for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
-                    buffer.offer(adsEvent.generateJson());
+                    buffer.put(adsEvent.generateJson());
                     if (i % statisticsPeriod == 0){
                         long interval = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
                         int bufferSize = buffer.size();
@@ -79,7 +78,7 @@ public class DataGenerator extends Thread {
         } else {
             for (int i = 0; i < tupleCount; ) {
                 for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
-                    buffer.offer(adsEvent.generateJson());
+                    buffer.put(adsEvent.generateJson());
                     if (i % statisticsPeriod == 0){
                         long interval = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
                         int bufferSize = buffer.size();
@@ -109,7 +108,7 @@ public class DataGenerator extends Thread {
         System.out.println("Just connected to " + server.getRemoteSocketAddress());
         PrintWriter out = new PrintWriter(server.getOutputStream(), true);
         int bufferSize = new Integer(conf.get("benchmarking.count").toString());
-        Queue<String> buffer = new ConcurrentLinkedQueue<>();    // new LinkedBlockingQueue<>();
+        BlockingQueue<String> buffer = new ArrayBlockingQueue<String>(bufferSize);    // new LinkedBlockingQueue<>();
         try {
             Thread generator = new DataGenerator(conf, buffer );
             generator.start();
@@ -122,7 +121,7 @@ public class DataGenerator extends Thread {
 }
 
 class BufferReader extends Thread {
-    private Queue<String> buffer;
+    private BlockingQueue<String> buffer;
     private Logger logger = Logger.getLogger("MyLog");
     private PrintWriter out;
     private ServerSocket serverSocket;
@@ -130,7 +129,7 @@ class BufferReader extends Thread {
     private  String statisticsThroughputFile;
     private int statisticsPeriod;
     private HashMap<Long,Integer> thoughputCount = new HashMap<>();
-    public BufferReader(Queue<String> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
+    public BufferReader(BlockingQueue<String> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
         this.buffer = buffer;
         this.out = out;
         this.serverSocket = serverSocket;
@@ -154,7 +153,7 @@ class BufferReader extends Thread {
 
             int tempVal = 0;
             for (int i = 0; i < benchmarkCount; i++) {
-                String tuple = buffer.poll();
+                String tuple = buffer.take();
                 out.println(tuple);
                 if (i % statisticsPeriod == 0 ){
                     thoughputCount.put(TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()), i - tempVal);
