@@ -23,6 +23,8 @@ import org.apache.flink.streaming.api.functions.sink.WriteSinkFunctionByMillis;
 import org.apache.flink.streaming.api.windowing.assigners.SlidingProcessingTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.connectors.fs.RollingSink;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer09;
+import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Properties;
 
 /**
  * To Run:  flink run target/flink-benchmarks-0.1.0-FlinkBenchmark.jar  --confPath "../conf/benchmarkConf.yaml"
@@ -61,7 +64,7 @@ public class FlinkBenchmark {
 
 
         if (benchmarkUseCase.equals("KeyedWindowedAggregation")) {
-            keyedWindowedAggregationBenchmark(env, conf);
+            keyedWindowedAggregationBenchmark2(env, conf);
         } else if (benchmarkUseCase.equals("WindowedJoin")){
             windowedJoin(env, conf);
         }
@@ -76,6 +79,90 @@ public class FlinkBenchmark {
 
 
 
+
+
+
+    private static void keyedWindowedAggregationBenchmark2(StreamExecutionEnvironment env, HashMap conf){
+        int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
+        int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
+        Long flushRate = new Long (conf.get("flush.rate").toString());
+
+        env.setParallelism(30);
+
+        Properties properties = new Properties();
+        properties.setProperty("group.id", "test");
+        properties.setProperty("zookeeper.connect", "localhost:2181"); // Zookeeper default host:port
+        properties.setProperty("bootstrap.servers", "localhost:9092"); // Broker default host:port
+        properties.setProperty("group.id", "myGroup");                 // Consumer group ID
+        properties.setProperty("auto.offset.reset", "earliest");       // Always read topic from start
+
+        FlinkKafkaConsumer09<String> consumer =
+                new FlinkKafkaConsumer09<>(
+                        "ss",
+                        new SimpleStringSchema(),
+                        properties);
+
+// create Kafka consumer data source
+        DataStream<String> rides = env.addSource(consumer);
+        rides.filter(t->false).print();
+
+        try {
+            env.execute("Read from Kafka example");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+
+//        ArrayList<String> hosts = (ArrayList<String>) conf.get("datasourcesocket.hosts");
+//        Integer port = new Integer(conf.get("datasourcesocket.port").toString());
+//        DataStream<String> socketSource = null;
+//        for (String host : hosts) {
+//            DataStream<String> socketSource_i = env.socketTextStream(host, port);
+//            socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);
+//        }
+//
+//        DataStream<Tuple5<String, Long, Double, Double,Long>> messageStream = socketSource.map(new MapFunction<String, Tuple5<String, Long, Double, Double,Long>>() {
+//            @Override
+//            public Tuple5<String, Long, Double, Double,Long> map(String s) throws Exception {
+//                JSONObject obj = new JSONObject(s);
+//                String geo = obj.getString("geo");
+//                Double price = obj.getDouble("price");
+//                Long ts = obj.has("ts") ? obj.getLong("ts"):System.currentTimeMillis();
+//                return new Tuple5<String, Long, Double, Double,Long>(geo, ts , price, price,1L);
+//            }
+//        });
+//
+//        DataStream<Tuple5<String, Long, Double, Double,Long>> aggregatedStream = messageStream.keyBy(0)
+//                .timeWindow(Time.milliseconds(slideWindowLength), Time.milliseconds(slideWindowSlide)).
+//                        reduce(new ReduceFunction<Tuple5<String, Long, Double, Double,Long>>() {
+//                            @Override
+//                            public Tuple5<String, Long, Double, Double,Long> reduce(Tuple5<String, Long, Double, Double,Long> t1, Tuple5<String, Long, Double, Double,Long> t2) throws Exception {
+//                                Double maxPrice = Math.max(t1.f2, t2.f2);
+//                                Double minPrice = Math.min(t1.f3, t2.f3);
+//                                Long ts = Math.max(t1.f1, t2.f1);
+//                                Long windowElements = t1.f4 + t2.f4;
+//                                return new Tuple5<String, Long, Double, Double,Long>(t1.f0, ts, maxPrice, minPrice,windowElements);
+//                            }
+//                        });
+//
+//
+//        DataStream<Tuple6<String, Long, Double, Double,Long,Long>> mappedStream = aggregatedStream.map(new MapFunction<Tuple5<String, Long, Double, Double,Long>, Tuple6<String, Long, Double, Double,Long, Long>>() {
+//            @Override
+//            public Tuple6<String, Long, Double, Double,Long,Long> map(Tuple5<String, Long, Double, Double,Long> t1) throws Exception {
+//                return new Tuple6<String, Long, Double, Double,Long, Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2, t1.f3,t1.f4, t1.f1);
+//            }
+//        });
+//
+//
+//        String outputFile = conf.get("flink.output").toString();
+//        int batchSize = new Integer(conf.get("flink.outputbatchsize").toString());
+//        RollingSink sink = new RollingSink<String>(outputFile);
+//        sink.setBatchSize(1024 * batchSize); // this is 400 MB,
+//
+//        mappedStream.addSink(sink);
+
+
+    }
 
 
 
