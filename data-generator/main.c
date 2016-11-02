@@ -128,10 +128,8 @@ void *consume( void  )
     consumerLog[logIndex]->value = 0;
     consumerLog[logIndex]->key = get_current_time_with_ms()/1000;
     for (unsigned long i = 0; i < benchmarkCount; i ++){
-        if(sem_wait(&sem)){
-        	i--;
-     	    continue;
-     }
+        sem_wait(&sem);
+     
         write(client_sock , buffer[i] , strlen(buffer[i]));
        	if(i % logInterval == 0){
             unsigned long long sec  = get_current_time_with_ms()/1000;
@@ -143,6 +141,7 @@ void *consume( void  )
             consumerLog[logIndex]->key = sec;
             printf("%lu tuples sent from buffer\n", i );
         }
+     free(buffer[i]);
     }
 
 
