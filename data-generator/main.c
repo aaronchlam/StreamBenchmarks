@@ -13,7 +13,7 @@
 //#include <time.h>
 #include <pthread.h>
 #include <sys/time.h>
-
+#include<semaphore.h>
     const char *geoListAll[] = {"AF", "AX", "AL"
             , "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM",
             "AW", "AC", "AU", "AT", "AZ", "BS", "BH", "BB", "BD", "BY", "BE", "BZ", "BJ", "BM", "BT", "BW", "BO", "BA", "BV", "BR",
@@ -36,6 +36,9 @@ int maxPrice = 100;
 char ** buffer;
 int port;
 unsigned long logInterval;
+sem_t sem;
+
+
 
 typedef struct LogInfo {
     unsigned long long key;
@@ -100,6 +103,7 @@ void *produce( void  )
             producerLog[logIndex]->key = sec;
             printf("%lu tuples produced\n", i );
          }
+         sem_post(&sem);
     }
 }
 
@@ -124,7 +128,7 @@ void *consume( void  )
     consumerLog[logIndex]->value = 0;
     consumerLog[logIndex]->key = get_current_time_with_ms()/1000;
     for (unsigned long i = 0; i < benchmarkCount; i ++){
-        if(buffer[i] == NULL){
+        if(sem_trywait(&sem)){
         	i--;
      	    continue;
      }
@@ -212,8 +216,9 @@ int main(int argc , char *argv[])
     initializeGeoList( partitionSize);
     int seed = 123;
     srand(seed);
-
-    buffer = malloc (benchmarkCount * sizeof(generateJsonString() + 10));   
+    
+    sem_init(&sem, 0 , 0);
+    buffer = malloc (benchmarkCount * sizeof(*buffer));   
 
     fireServerSocket(); 
     pthread_create( &producer, NULL, produce, NULL);
