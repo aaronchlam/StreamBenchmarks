@@ -39,7 +39,7 @@ char ** buffer;
 int port;
 unsigned long logInterval;
 sem_t sem;
-
+char * statsPath;
 
 
 typedef struct LogInfo {
@@ -107,6 +107,11 @@ void *produce( void  )
          }
          sem_post(&sem);
     }
+    char * producerFP = malloc(2000);
+    char hostname[1024];
+    gethostname(hostname, 1024);
+    sprintf(producerFP, "%sproducer-%s.csv",statsPath,hostname  );
+    writeStatsToFile(producerFP,producerLog);
 }
 
 
@@ -150,12 +155,18 @@ void *consume( void  )
      if(read_size == 0)
      {
          puts("Client disconnected");
-         fflush(stdout);
      }
      else if(read_size == -1)
      {
          perror("recv failed");
      }
+
+    char * consumerFP = malloc(2000);
+    char hostname[1024];
+    gethostname(hostname, 1024);
+    sprintf(consumerFP, "%sconsumer-%s.csv",statsPath,hostname  );
+    writeStatsToFile(consumerFP,consumerLog);
+
 }
 
 void fireServerSocket(void){
@@ -188,7 +199,7 @@ void fireServerSocket(void){
 }
 
 void writeStatsToFile(char * path, logInfo**  logs){
-  FILE *f = fopen(path, "w");
+  FILE *f = fopen(path, "a");
     if (f == NULL)  { 
         printf("Error opening file!\n");
         exit(1);
@@ -207,7 +218,7 @@ void writeStatsToFile(char * path, logInfo**  logs){
 int main(int argc , char *argv[])
 {
     double partitionSize;
-    char * statsPath = malloc(1000);
+    statsPath = malloc(1000);
     pthread_t producer, consumer;
     sscanf(argv[1],"%lf",&partitionSize);
     sscanf(argv[2],"%lu",&benchmarkCount); 
