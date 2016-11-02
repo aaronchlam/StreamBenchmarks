@@ -128,7 +128,7 @@ void *consume( void  )
     consumerLog[logIndex]->value = 0;
     consumerLog[logIndex]->key = get_current_time_with_ms()/1000;
     for (unsigned long i = 0; i < benchmarkCount; i ++){
-        if(sem_trywait(&sem)){
+        if(sem_wait(&sem)){
         	i--;
      	    continue;
      }
