@@ -59,6 +59,23 @@ unsigned long long  get_current_time_with_ms (void)
 }
 
 
+void writeStatsToFile(char * path, logInfo**  logs){
+      FILE *f = fopen(path, "w");
+      if (f == NULL)  {
+          printf("Error opening file!\n");
+          exit(1);
+          }
+      for(int i = 0; ;i++){
+        if(logs[i]== NULL){
+            break;
+            } else {
+                fprintf(f, "%llu, %lu\n", logs[i]->key, logs[i]->value);
+            }
+        }
+        fclose(f);
+}
+
+
 void initializeGeoList( double d){
 	
 	int allSize = sizeof(geoListAll)/sizeof(geoListAll[0]);
@@ -89,7 +106,7 @@ char* generateJsonString(void){
 void *produce( void  )
 {
     int logIndex = 0;
-    producerLog = malloc(((benchmarkCount/logInterval) +1) * sizeof (logInfo*));
+    producerLog = malloc(((benchmarkCount/logInterval) +1) * sizeof (*producerLog));
     producerLog[logIndex] = malloc(sizeof(logInfo));
     producerLog[logIndex]->value = 0;
     producerLog[logIndex]->key = get_current_time_with_ms()/1000;
@@ -107,6 +124,9 @@ void *produce( void  )
          }
          sem_post(&sem);
     }
+    logIndex++;
+    producerLog[logIndex] = NULL;
+
     char * producerFP = malloc(2000);
     char hostname[1024];
     gethostname(hostname, 1024);
@@ -130,7 +150,7 @@ void *consume( void  )
      
      // sending tuples
     int logIndex = 0;
-    consumerLog = malloc(((benchmarkCount/logInterval) +3) * sizeof (logInfo*));
+    consumerLog = malloc(((benchmarkCount/logInterval) +3) * sizeof (*consumerLog));
     consumerLog[logIndex] = malloc(sizeof(logInfo));
     consumerLog[logIndex]->value = 0;
     consumerLog[logIndex]->key = get_current_time_with_ms()/1000;
@@ -150,6 +170,8 @@ void *consume( void  )
         }
      free(buffer[i]);
     }
+    logIndex++;
+    consumerLog[logIndex]=NULL;
 
 
      if(read_size == 0)
@@ -198,22 +220,6 @@ void fireServerSocket(void){
     client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c);
 }
 
-void writeStatsToFile(char * path, logInfo**  logs){
-  FILE *f = fopen(path, "a");
-    if (f == NULL)  { 
-        printf("Error opening file!\n");
-        exit(1);
-    }
-    for(int i = 0; ;i++){
-        if(logs[i]== NULL){
-            break;
-        } else {
-            fprintf(f, "%llu, %lu\n", logs[i]->key, logs[i]->value);   
-        }
-    }
-    fclose(f);
-}
-
 
 int main(int argc , char *argv[])
 {
@@ -240,16 +246,6 @@ int main(int argc , char *argv[])
      pthread_join( consumer, NULL);
 
 
-    char * producerFP = malloc(2000);
-    char * consumerFP = malloc(2000);
-
-    char hostname[1024];
-    gethostname(hostname, 1024);
-    
-    sprintf(producerFP, "%sproducer-%s.csv",statsPath,hostname  );
-    sprintf(consumerFP, "%sconsumer-%s.csv",statsPath,hostname  );
-    writeStatsToFile(producerFP,producerLog);
-    writeStatsToFile(consumerFP,consumerLog);
     free(buffer);
     return 0;
          //Send ehe message back to client
