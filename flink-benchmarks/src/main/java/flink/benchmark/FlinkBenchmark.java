@@ -164,8 +164,13 @@ public class FlinkBenchmark {
             }
         });
 
+
         String outputFile = conf.get("flink.output").toString();
-        resultingStream.addSink(new WriteSinkFunctionByMillis<Tuple4<String, Long, Double, Long>>(outputFile, new WriteFormatAsCsv(), flushRate));
+        int batchSize = new Integer(conf.get("flink.outputbatchsize").toString());
+        RollingSink sink = new RollingSink<String>(outputFile);
+        sink.setBatchSize(1024 * batchSize); // this is 400 MB,
+
+        resultingStream.addSink(sink);
 
     }
 
