@@ -14,7 +14,9 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include<semaphore.h>
-    const char *geoListAll[] = {"AF", "AX", "AL"
+#include <unistd.h>
+
+const char *geoListAll[] = {"AF", "AX", "AL"
             , "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM",
             "AW", "AC", "AU", "AT", "AZ", "BS", "BH", "BB", "BD", "BY", "BE", "BZ", "BJ", "BM", "BT", "BW", "BO", "BA", "BV", "BR",
             "IO", "BN", "BG", "BF", "BI", "KH", "CM", "CA", "CV", "KY", "CF", "TD", "CL", "CN", "CX", "CC", "CO", "KM", "CG", "CD",
@@ -229,8 +231,12 @@ int main(int argc , char *argv[])
 
     char * producerFP = malloc(2000);
     char * consumerFP = malloc(2000);
-    sprintf(producerFP, "%sproducer.csv",statsPath  );
-    sprintf(consumerFP, "%sconsumer.csv",statsPath  );
+
+    char hostname[1024];
+    gethostname(hostname, 1024);
+    
+    sprintf(producerFP, "%sproducer-%s.csv",statsPath,hostname  );
+    sprintf(consumerFP, "%sconsumer-%s.csv",statsPath,hostname  );
     writeStatsToFile(producerFP,producerLog);
     writeStatsToFile(consumerFP,consumerLog);
     free(buffer);
