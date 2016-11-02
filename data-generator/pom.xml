@@ -13,6 +13,15 @@
 
 
     <dependencies>
+        <!-- https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients -->
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>0.9.0.1</version>
+        </dependency>
+
+
+
         <!-- https://mvnrepository.com/artifact/org.fluttercode.datafactory/datafactory -->
         <dependency>
             <groupId>org.json</groupId>
