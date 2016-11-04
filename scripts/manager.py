@@ -67,6 +67,8 @@ def start_storm():
 #	print start_supervisor_node
 	time.sleep(5)
 	print('nimbus started')
+        sp.Popen([storm_home + 'bin/storm' ,'ui' ], stdout=sp.PIPE,stderr=sp.STDOUT)
+        time.sleep(5)
 	with open(slaves) as f:
 		for host in f:
 			#print host
@@ -95,6 +97,7 @@ def stop_process_all(name):
 
 def storm_benchmark():
 	clear_dir(project_dir + "output/trident/")
+	clear_dir(project_dir + "output/stats/trident/")
 	sp.call([storm_home + "bin/storm", "jar", project_dir + 'storm-benchmarks/target/storm-benchmarks-0.1.0.jar' , 'trident.benchmark.TridentBenchmark', conf_file,'cluster','topologyName'])
 
 def merge_output_files():

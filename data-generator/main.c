@@ -16,20 +16,12 @@
 #include<semaphore.h>
 #include <unistd.h>
 
-const char *geoListAll[] = {"AF", "AX", "AL"
-            , "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM",
-            "AW", "AC", "AU", "AT", "AZ", "BS", "BH", "BB", "BD", "BY", "BE", "BZ", "BJ", "BM", "BT", "BW", "BO", "BA", "BV", "BR",
-            "IO", "BN", "BG", "BF", "BI", "KH", "CM", "CA", "CV", "KY", "CF", "TD", "CL", "CN", "CX", "CC", "CO", "KM", "CG", "CD",
-            "CK", "CR", "CI", "HR", "CU", "CY", "CZ", "CS", "DK", "DJ", "DM", "DO", "TP", "EC", "EG", "SV", "GQ", "ER", "EE", "ET",
-            "EU", "FK", "FO", "FJ", "FI", "FR", "FX", "GF", "PF", "TF", "MK", "GA", "GM", "GE", "DE", "GH", "GI", "GB", "GR", "GL",
-            "GD", "GP", "GU", "GT", "GG", "GN", "GW", "GY", "HT", "HM", "HN", "HK", "HU", "IS", "IN", "ID", "IR", "IQ", "IE", "IL",
-            "IM", "IT", "JE", "JM", "JP", "JO", "KZ", "KE", "KI", "KP", "KR", "KW", "KG", "LA", "LV", "LB", "LI", "LR", "LY", "LS",
-            "LT", "LU", "MO", "MG", "MW", "MY", "MV", "ML", "MT", "MH", "MQ", "MR", "MU", "YT", "MX", "FM", "MC", "MD", "MN", "ME",
-            "MS", "MA", "MZ", "MM", "NA", "NR", "NP", "NL", "AN", "NT", "NC", "NZ", "NI", "NE", "NG", "NU", "NF", "MP", "NO", "OM",
-            "PK", "PW", "PS", "PA", "PG", "PY", "PE", "PH", "PN", "PL", "PT", "PR", "QA", "RE", "RO", "RU", "RW", "GS", "KN", "LC",
-            "VC", "WS", "SM", "ST", "SA", "SN", "RS", "YU", "SC", "SL", "SG", "SI", "SK", "SB", "SO", "ZA", "ES", "LK", "SH", "PM",
-            "SD", "SR", "SJ", "SZ", "SE", "CH", "SY", "TW", "TJ", "TZ", "TH", "TG", "TK", "TO", "TT", "TN", "TR", "TM", "TC", "TV",
-            "UG", "UA", "AE", "UK", "US", "UM", "UY", "SU", "UZ", "VU", "VA", "VE", "VN", "VG", "VI", "WF", "EH", "YE", "ZM", "ZR", "ZW"}; 
+const char *geoListAll[] = {
+            "AF", "AX", "AL", "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM","AW", "AC", "AU", "AT", "AZ", "BS", "BH", "BB",
+            "BD", "BY", "BE", "BZ", "BJ", "BM", "BT", "BW", "BO", "BA", "BV", "BR","IO", "BN", "BG", "BF", "BI", "KH", "CM", "CA", 
+            "CV", "KY", "CF", "TD", "CL", "CN", "CX", "CC", "CO", "KM", "CG", "CD","CK", "CR", "CI", "HR", "CU", "CY", "CZ", "CS",
+            "DK", "DJ", "DM", "DO", "TP", "EC", "EG", "SV", "GQ", "ER", "EE", "ET","EU", "FK", "FO", "FJ", "FI", "FR", "FX", "GF",
+            "PF", "TF", "MK", "GA", "GM", "GE", "DE", "GH", "GI", "GB", "GR", "GL","GD", "GP", "GU", "GT", "GG", "GN", "GW", "GY"};
 char **reducedGeoList;
 unsigned long benchmarkCount;
 unsigned long geoIndex=0;
@@ -40,7 +32,7 @@ int port;
 unsigned long logInterval;
 sem_t sem;
 char * statsPath;
-
+unsigned long sleepTime;
 
 typedef struct LogInfo {
     unsigned long long key;
@@ -65,14 +57,16 @@ void writeStatsToFile(char * path, logInfo**  logs){
           printf("Error opening file!\n");
           exit(1);
           }
-      for(int i = 0; ;i++){
-        if(logs[i]== NULL){
+      int index;
+      for(index = 0; ;index++){
+        if(logs[index]== NULL){
             break;
             } else {
-                fprintf(f, "%llu, %lu\n", logs[i]->key, logs[i]->value);
+                fprintf(f, "%llu, %lu\n", logs[index]->key, logs[index]->value);
             }
         }
         fclose(f);
+	printf("Throughput for  %s is %d tuples ps \n",path, benchmarkCount/(logs[index-1]->key - logs[0]->key  ));
 }
 
 
@@ -102,7 +96,14 @@ char* generateJsonString(void){
 	return newJson;
 }
 
-
+void nsleep(long us)
+{
+        struct timespec wait;
+            //printf("Will sleep for is %ld\n", diff); //This will take extra ~70 microseconds        
+        wait.tv_sec = us / (1000 * 1000);
+        wait.tv_nsec = (us % (1000 * 1000)) * 1000;
+        nanosleep(&wait, NULL);
+}
 void *produce( void  )
 {
     int logIndex = 0;
@@ -110,7 +111,10 @@ void *produce( void  )
     producerLog[logIndex] = malloc(sizeof(logInfo));
     producerLog[logIndex]->value = 0;
     producerLog[logIndex]->key = get_current_time_with_ms()/1000;
+    
+
     for (unsigned long i = 0; i < benchmarkCount; i++){
+
          buffer[i] = generateJsonString();
          if(i % logInterval == 0){
             unsigned long long sec  = get_current_time_with_ms()/1000;
@@ -123,15 +127,10 @@ void *produce( void  )
             printf("%lu tuples produced\n", i );
          }
          sem_post(&sem);
+	nsleep(sleepTime * 1000);
     }
     logIndex++;
     producerLog[logIndex] = NULL;
-
-    char * producerFP = malloc(2000);
-    char hostname[1024];
-    gethostname(hostname, 1024);
-    sprintf(producerFP, "%sproducer-%s.csv",statsPath,hostname  );
-    writeStatsToFile(producerFP,producerLog);
 }
 
 
@@ -156,7 +155,6 @@ void *consume( void  )
     consumerLog[logIndex]->key = get_current_time_with_ms()/1000;
     for (unsigned long i = 0; i < benchmarkCount; i ++){
         sem_wait(&sem);
-     
         write(client_sock , buffer[i] , strlen(buffer[i]));
        	if(i % logInterval == 0){
             unsigned long long sec  = get_current_time_with_ms()/1000;
@@ -182,13 +180,6 @@ void *consume( void  )
      {
          perror("recv failed");
      }
-
-    char * consumerFP = malloc(2000);
-    char hostname[1024];
-    gethostname(hostname, 1024);
-    sprintf(consumerFP, "%sconsumer-%s.csv",statsPath,hostname  );
-    writeStatsToFile(consumerFP,consumerLog);
-
 }
 
 void fireServerSocket(void){
@@ -231,6 +222,7 @@ int main(int argc , char *argv[])
     sscanf(argv[4],"%d",&port); 
     sscanf(argv[3],"%lu",&logInterval);
     statsPath = argv[5];
+    sscanf(argv[6],"%lu",&sleepTime);
     initializeGeoList( partitionSize);
     int seed = 123;
     srand(seed);
@@ -244,9 +236,18 @@ int main(int argc , char *argv[])
 
      pthread_join( producer, NULL);
      pthread_join( consumer, NULL);
+    char * producerFP = malloc(2000);
+    char hostname[1024];
+    gethostname(hostname, 1024);
+    sprintf(producerFP, "%sproducer-%s.csv",statsPath,hostname  );
+    writeStatsToFile(producerFP,producerLog);
 
+    char * consumerFP = malloc(2000);
+    sprintf(consumerFP, "%sconsumer-%s.csv",statsPath,hostname  );
+    writeStatsToFile(consumerFP,consumerLog);
 
     free(buffer);
     return 0;
          //Send ehe message back to client
 }
+
