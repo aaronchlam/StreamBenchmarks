@@ -4,6 +4,7 @@
  */
 package flink.benchmark;
 
+import benchmark.common.CommonConfig;
 import com.esotericsoftware.yamlbeans.YamlReader;
 import org.apache.flink.api.common.functions.JoinFunction;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -40,30 +41,24 @@ public class FlinkBenchmark {
 
 
     public static void main(final String[] args) throws Exception {
-
         if (args == null || args.length != 2) {
             throw new Exception("configuration file parameter is needed. Ex: --confPath ../conf/benchmarkConf.yaml");
         }
         ParameterTool parameterTool = ParameterTool.fromArgs(args);
         String confFilePath = parameterTool.getRequired("confPath");
-        YamlReader reader = new YamlReader(new FileReader(confFilePath));
-        Object object = reader.read();
-        HashMap conf = (HashMap) object;
-
-        String benchmarkUseCase = conf.get("benchmarking.usecase").toString();
-	    Long flushRate = new Long (conf.get("flush.rate").toString());
+        CommonConfig.initializeConfig(confFilePath);
 
         //TODO parametertool, checkpoint flush rate, kafka zookeeper configurations
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setBufferTimeout(flushRate);
+        env.setBufferTimeout(CommonConfig.FLUSH_RATE());
         env.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
 
 
-        if (benchmarkUseCase.equals("KeyedWindowedAggregation")) {
-            keyedWindowedAggregationBenchmark(env, conf);
-        } else if (benchmarkUseCase.equals("WindowedJoin")){
-            windowedJoin(env, conf);
+        if (CommonConfig.BENCHMARKING_USECASE().equals("KeyedWindowedAggregation")) {
+            keyedWindowedAggregationBenchmark(env);
+        } else if (CommonConfig.BENCHMARKING_USECASE().equals("WindowedJoin")){
+            windowedJoin(env);
         }
 
         else {
@@ -76,23 +71,13 @@ public class FlinkBenchmark {
 
 
 
-
-
-
-
-    private static void windowedJoin(StreamExecutionEnvironment env, HashMap conf){
-        int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
-        int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
-        Long flushRate = new Long (conf.get("flush.rate").toString());
-        ArrayList<String> hosts = (ArrayList<String>) conf.get("datasourcesocket.hosts");
-        Integer port = new Integer(conf.get("datasourcesocket.port").toString());
-
+    private static void windowedJoin(StreamExecutionEnvironment env){
         DataStream<String> joinStream1 = null;
         DataStream<String> joinStream2 = null;
 
-        for (int i = 0; i < hosts.size(); i++) {
-            String host = hosts.get(i);
-            DataStream<String> socketSource_i = env.socketTextStream(host, port);
+        for (int i = 0; i < CommonConfig.DATASOURCE_HOSTS().size(); i++) {
+            String host = CommonConfig.DATASOURCE_HOSTS().get(i);
+            DataStream<String> socketSource_i = env.socketTextStream(host, CommonConfig.DATASOURCE_PORT());
             if (i % 2 == 0) {
                 joinStream1 = joinStream1 == null ? socketSource_i : joinStream1.union(socketSource_i);
             } else {
@@ -100,35 +85,25 @@ public class FlinkBenchmark {
             }
         }
 
-        KeyedStream<Tuple3<String, Long, Double>,String> projectedStream1 = joinStream1.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
+        DataStream<Tuple3<String, Long, Double>> projectedStream1 = joinStream1.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
             @Override
             public Tuple3<String, Long, Double> map(String s) throws Exception {
                 JSONObject obj = new JSONObject(s);
                 String geo = obj.getString("geo");
                 Double price = obj.getDouble("price");
-                Long ts = obj.has("ts") ? obj.getLong("ts"):System.currentTimeMillis();
+                Long ts =  obj.getLong("ts");
                 return new Tuple3<String, Long, Double>(geo, ts , price);
-            }
-        }).keyBy(new KeySelector<Tuple3<String,Long,Double>, String>() {
-            @Override
-            public String getKey(Tuple3<String, Long, Double> t) throws Exception {
-                return t.f0;
             }
         });
 
-        KeyedStream<Tuple3<String, Long, Double>,String> projectedStream2 = joinStream2.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
+        DataStream<Tuple3<String, Long, Double>> projectedStream2 = joinStream2.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
             @Override
             public Tuple3<String, Long, Double> map(String s) throws Exception {
                 JSONObject obj = new JSONObject(s);
                 String geo = obj.getString("geo");
                 Double price = obj.getDouble("price");
-                Long ts = obj.has("ts") ? obj.getLong("ts"):System.currentTimeMillis();
+                Long ts =  obj.getLong("ts");
                 return new Tuple3<String, Long, Double>(geo, ts , price);
-            }
-        }).keyBy(new KeySelector<Tuple3<String, Long, Double>, String>() {
-            @Override
-            public String getKey(Tuple3<String, Long, Double> t) throws Exception {
-                return t.f0;
             }
         });
 
@@ -147,12 +122,12 @@ public class FlinkBenchmark {
                         return tuple.f0;
                     }
                 }).
-                window(SlidingProcessingTimeWindows.of(Time.milliseconds(slideWindowLength), Time.milliseconds(slideWindowSlide)))
+                window(SlidingProcessingTimeWindows.of(Time.milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Time.milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE())))
                 .apply(new JoinFunction<Tuple3<String, Long, Double>, Tuple3<String, Long, Double>, Tuple3<String, Long, Double>>() {
 
                     @Override
                     public Tuple3<String, Long, Double> join(Tuple3<String, Long, Double> t1, Tuple3<String, Long, Double> t2) throws Exception {
-                        return new Tuple3<String, Long, Double>(t1.f0, Math.max(t1.f1,t2.f1), t1.f2<0 ||t2.f2<0? -100D : Math.abs(t1.f2-t2.f2));
+                        return new Tuple3<String, Long, Double>(t1.f0, Math.max(t1.f1,t2.f1),  Math.abs(t1.f2-t2.f2));
                     }
                 });
 
@@ -165,10 +140,8 @@ public class FlinkBenchmark {
         });
 
 
-        String outputFile = conf.get("flink.output").toString();
-        int batchSize = new Integer(conf.get("flink.outputbatchsize").toString());
-        RollingSink sink = new RollingSink<String>(outputFile);
-        sink.setBatchSize(1024 * batchSize); // this is 400 MB,
+        RollingSink sink = new RollingSink<String>(CommonConfig.FLINK_OUTPUT());
+        sink.setBatchSize(1024 * CommonConfig.OUTPUT_BATCHSIZE_KB()); // this is 400 MB,
 
         resultingStream.addSink(sink);
 
@@ -177,21 +150,10 @@ public class FlinkBenchmark {
 
 
 
-
-
-
-
-
-
-    private static void keyedWindowedAggregationBenchmark(StreamExecutionEnvironment env, HashMap conf){
-        int slideWindowLength = new Integer(conf.get("slidingwindow.length").toString());
-        int slideWindowSlide = new Integer(conf.get("slidingwindow.slide").toString());
-        Long flushRate = new Long (conf.get("flush.rate").toString());
-        ArrayList<String> hosts = (ArrayList<String>) conf.get("datasourcesocket.hosts");
-        Integer port = new Integer(conf.get("datasourcesocket.port").toString());
+    private static void keyedWindowedAggregationBenchmark(StreamExecutionEnvironment env){
         DataStream<String> socketSource = null;
-        for (String host : hosts) {
-            DataStream<String> socketSource_i = env.socketTextStream(host, port);
+        for (String host : CommonConfig.DATASOURCE_HOSTS()) {
+            DataStream<String> socketSource_i = env.socketTextStream(host, CommonConfig.DATASOURCE_PORT());
             socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);
         }
 
@@ -207,7 +169,7 @@ public class FlinkBenchmark {
                 });
 
         DataStream<Tuple5<String, Long, Double, Double,Long>> aggregatedStream = messageStream.keyBy(0)
-                .timeWindow(Time.milliseconds(slideWindowLength), Time.milliseconds(slideWindowSlide)).
+                .timeWindow(Time.milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Time.milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE())).
                         reduce(new ReduceFunction<Tuple5<String, Long, Double, Double,Long>>() {
                             @Override
                             public Tuple5<String, Long, Double, Double,Long> reduce(Tuple5<String, Long, Double, Double,Long> t1, Tuple5<String, Long, Double, Double,Long> t2) throws Exception {
@@ -228,10 +190,8 @@ public class FlinkBenchmark {
         });
 
 
-        String outputFile = conf.get("flink.output").toString();
-        int batchSize = new Integer(conf.get("flink.outputbatchsize").toString());
-        RollingSink sink = new RollingSink<String>(outputFile);
-        sink.setBatchSize(1024 * batchSize); // this is 400 MB,
+        RollingSink sink = new RollingSink<String>(CommonConfig.FLINK_OUTPUT());
+        sink.setBatchSize(1024 * CommonConfig.OUTPUT_BATCHSIZE_KB()); // this is 400 MB,
 
         mappedStream.addSink(sink);
 
