@@ -28,14 +28,25 @@ object SparkBenchmark {
     rootLogger.setLevel(Level.ERROR)
 
 
-    if (CommonConfig.BENCHMARKING_USECASE() == "KeyedWindowedAggregation")
+    if (CommonConfig.BENCHMARKING_USECASE() == CommonConfig.AGGREGATION_USECASE)
       keyedWindowedAggregationBenchmark(ssc);
-    else if (CommonConfig.BENCHMARKING_USECASE() == "WindowedJoin")
+    else if (CommonConfig.BENCHMARKING_USECASE() == CommonConfig.JOIN_USECASE)
       windowedJoin(ssc);
+    else if (CommonConfig.BENCHMARKING_USECASE() == CommonConfig.DUMMY_CONSUMER)
+      dummyConsumer(ssc);
     else throw new Exception("Please specify use-case name")
 
     ssc.start()
     ssc.awaitTermination()
+  }
+
+  def dummyConsumer(ssc: StreamingContext) = {
+    var socketDataSource: DStream[String] = null;
+    for (host <- CommonConfig.DATASOURCE_HOSTS()) {
+      val socketDataSource_i: DStream[String] = ssc.receiverStream(new SocketReceiver(host, CommonConfig.DATASOURCE_PORT()))
+      socketDataSource = if (socketDataSource == null) socketDataSource_i else socketDataSource.union(socketDataSource_i)
+    }
+    socketDataSource.filter(t=> false).saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
   }
 
   def windowedJoin(ssc: StreamingContext) = {

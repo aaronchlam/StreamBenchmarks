@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileReader;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -37,6 +36,10 @@ public class CommonConfig {
     private static String STORM_ACKERS = "storm.ackers";
     private static String PARALLELISM = "parallelism";
     private static String OUTPUT_SYNC_POLICY_COUNT = "output.sync.policy.count";
+
+    public static String AGGREGATION_USECASE = "KeyedWindowedAggregation";
+    public static String JOIN_USECASE = "WindowedJoin";
+    public static String DUMMY_CONSUMER = "DummyConsumer";
 
     private static HashMap instance = null;
 

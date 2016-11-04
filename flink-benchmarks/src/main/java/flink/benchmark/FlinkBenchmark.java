@@ -6,6 +6,7 @@ package flink.benchmark;
 
 import benchmark.common.CommonConfig;
 import com.esotericsoftware.yamlbeans.YamlReader;
+import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.JoinFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
@@ -55,10 +56,12 @@ public class FlinkBenchmark {
         env.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
 
 
-        if (CommonConfig.BENCHMARKING_USECASE().equals("KeyedWindowedAggregation")) {
+        if (CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.AGGREGATION_USECASE)) {
             keyedWindowedAggregationBenchmark(env);
-        } else if (CommonConfig.BENCHMARKING_USECASE().equals("WindowedJoin")){
+        } else if (CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.JOIN_USECASE)){
             windowedJoin(env);
+        } else if(CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.DUMMY_CONSUMER)){
+            dummyConsumer(env);
         }
 
         else {
@@ -66,6 +69,22 @@ public class FlinkBenchmark {
         }
 
         env.execute();
+
+    }
+
+
+    private static void dummyConsumer(StreamExecutionEnvironment env){
+        DataStream<String> socketSource = null;
+        for (String host : CommonConfig.DATASOURCE_HOSTS()) {
+            DataStream<String> socketSource_i = env.socketTextStream(host, CommonConfig.DATASOURCE_PORT());
+            socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);
+        }
+        DataStream<String> filteredStream = socketSource.filter(t->false);
+        RollingSink sink = new RollingSink<String>(CommonConfig.FLINK_OUTPUT());
+        sink.setBatchSize(1024 * CommonConfig.OUTPUT_BATCHSIZE_KB()); // this is 400 MB,
+
+        filteredStream.addSink(sink);
+
 
     }
 
