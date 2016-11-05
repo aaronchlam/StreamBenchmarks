@@ -96,9 +96,9 @@ def stop_process_all(name):
 			stop_process(name,host)
 
 def storm_benchmark():
-	clear_dir(project_dir + "output/trident/")
-	clear_dir(project_dir + "output/stats/trident/")
-	sp.call([storm_home + "bin/storm", "jar", project_dir + 'storm-benchmarks/target/storm-benchmarks-0.1.0.jar' , 'trident.benchmark.TridentBenchmark', conf_file,'cluster','topologyName'])
+	clear_dir(project_dir + "output/storm/")
+	clear_dir(project_dir + "output/stats/storm/")
+	sp.call([storm_home + "bin/storm", "jar", project_dir + 'storm-benchmarks/target/storm-benchmarks-0.1.0.jar' , 'storm.benchmark.StormBenchmark', conf_file,'cluster','topologyName'])
 
 def merge_output_files():
 	print spark_output_dir
@@ -125,7 +125,7 @@ def parse_conf_file():
 		elif 'spark.output' in line:
 			global spark_output_dir
 			spark_output_dir =  line.split(None)[1].replace("\"","")
-		elif 'trident.output' in line:
+		elif 'storm.output' in line:
 			global storm_output_dir
 			storm_output_dir =  line.split(None)[1].replace("\"","")
 		elif 'kafka.output' in line:
@@ -188,8 +188,8 @@ if(len(sys.argv[1:]) == 1):
 		storm_benchmark()
 	elif(arg == "concat-spark"):
 		concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/spark/*/*', '/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/spark_temp.csv')
-	elif(arg == "concat-trident"):
-		 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/trident/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/trident_temp.csv')
+	elif(arg == "concat-storm"):
+		 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/storm/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/storm_temp.csv')
 	elif(arg == "concat-flink"):
                 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/flink/*/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/flink_temp.csv')
 	elif(arg == "start-datagenerators"):

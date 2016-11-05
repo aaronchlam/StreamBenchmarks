@@ -33,7 +33,8 @@ unsigned long logInterval;
 sem_t sem;
 char * statsPath;
 unsigned long sleepTime;
-
+int socket_desc , client_sock , c , read_size;
+struct sockaddr_in server , client;
 typedef struct LogInfo {
     unsigned long long key;
     unsigned long value;
@@ -127,15 +128,16 @@ void *produce( void  )
             printf("%lu tuples produced\n", i );
          }
          sem_post(&sem);
+	if(sleepTime){
 	nsleep(sleepTime * 1000);
+	printf("sleep called\n");
+        }
     }
     logIndex++;
     producerLog[logIndex] = NULL;
 }
 
 
-int socket_desc , client_sock , c , read_size;
-struct sockaddr_in server , client;
 
 void *consume( void  )
 {
