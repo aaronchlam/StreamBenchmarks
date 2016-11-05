@@ -241,11 +241,11 @@ int main(int argc , char *argv[])
     char * producerFP = malloc(2000);
     char hostname[1024];
     gethostname(hostname, 1024);
-    sprintf(producerFP, "%sproducer-%s.csv",statsPath,hostname  );
+    sprintf(producerFP, "%sproducer-%s-%d.csv",statsPath,hostname,port  );
     writeStatsToFile(producerFP,producerLog);
 
     char * consumerFP = malloc(2000);
-    sprintf(consumerFP, "%sconsumer-%s.csv",statsPath,hostname  );
+    sprintf(consumerFP, "%sconsumer-%s-%d.csv",statsPath,hostname,port  );
     writeStatsToFile(consumerFP,consumerLog);
 
     free(buffer);
