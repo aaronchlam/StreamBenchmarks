@@ -7,7 +7,6 @@ import os
 import signal
 import shutil
 import glob
-
 storm_home = '/share/hadoop/jkarimov/workDir/systems/apache-storm-1.0.2/'
 spark_home = '/share/hadoop/jkarimov/workDir/systems/spark-2.0.0-bin-hadoop2.7//'
 flink_home = '/share/hadoop/jkarimov/workDir/systems/flink-1.1.2/'
@@ -23,7 +22,7 @@ storm_output_dir = ''
 kafka_output_dir = ''
 conf_file = '/share/hadoop/jkarimov/workDir/StreamBenchmarks/conf/benchmarkConf.yaml'
 datagenerator_hosts = [ ]
-datagenerator_port = 0
+datagenerator_ports = [ ]
 
 def start_flink():
 	sp.call([flink_home + "bin/start-cluster.sh"])
@@ -131,9 +130,12 @@ def parse_conf_file():
 		elif 'kafka.output' in line:
 			global kafka_output_dir
 			kafka_output_dir =  line.split(None)[1].replace("\"","")
-		elif 'datasourcesocket.port' in line:
-			global datagenerator_port
-			datagenerator_port = line.split(None)[1].replace("\"","")
+		elif 'datasourcesocket.ports' in line:
+			global datagenerator_ports
+		        tempInd = index + 1
+                        while '-' in content[tempInd]:
+                                datagenerator_ports.append( content[tempInd].split(None)[1].replace("\"",""))
+                                tempInd = tempInd + 1	
 		elif 'datasourcesocket.hosts' in line:
 			global datagenerator_hosts
 			tempInd = index + 1
@@ -162,6 +164,7 @@ def start_data_generator(partition):
 
 parse_conf_file()
 print(datagenerator_hosts)
+print(datagenerator_ports)
 if(len(sys.argv[1:]) == 1):
 	arg = sys.argv[1]
 	if (arg == "start-flink"):
