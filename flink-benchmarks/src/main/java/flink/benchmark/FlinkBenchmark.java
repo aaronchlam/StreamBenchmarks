@@ -74,7 +74,7 @@ public class FlinkBenchmark {
         }
         DataStream<String> filteredStream = socketSource.filter(t->false);
         RollingSink sink = new RollingSink<String>(CommonConfig.FLINK_OUTPUT());
-        sink.setBatchSize(1024 * CommonConfig.OUTPUT_BATCHSIZE_KB()); // this is 400 MB,
+        sink.setBatchSize(CommonConfig.OUTPUT_BATCHSIZE_KB()); // this is 400 MB,
 
         filteredStream.addSink(sink);
 
