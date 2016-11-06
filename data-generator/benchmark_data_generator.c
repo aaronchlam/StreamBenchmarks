@@ -45,7 +45,8 @@ logInfo** consumerLog;
 FILE *consumerFile;
 FILE *producerFile;
 
-
+char * producerFP;
+char * consumerFP;
 
 unsigned long long  get_current_time_with_ms (void)
 {
@@ -98,7 +99,11 @@ void *produce( void  )
     producerLog[logIndex] = malloc(sizeof(logInfo));
     producerLog[logIndex]->value = 0;
     producerLog[logIndex]->key = get_current_time_with_ms()/1000;
+    producerFile = fopen(producerFP, "a+");
     fprintf(producerFile, "%llu, %lu, %lu \n", producerLog[logIndex]->key, producerLog[logIndex]->value, 0);
+    fclose(producerFile);    
+
+
     unsigned long long startTime =     producerLog[logIndex]->key;
     for (unsigned long i = 0; i < benchmarkCount; i++){
 
@@ -115,8 +120,10 @@ void *produce( void  )
             unsigned long long interval =   producerLog[logIndex]->key - startTime;
             if(interval != 0){
                  unsigned long currentThroughput = i / interval;
-                 fprintf(producerFile, "%llu, %lu, %lu \n", producerLog[logIndex]->key, producerLog[logIndex]->value, currentThroughput);
-            }
+                producerFile = fopen(producerFP, "a+"); 
+		fprintf(producerFile, "%llu, %lu, %lu \n", producerLog[logIndex]->key, producerLog[logIndex]->value, currentThroughput);
+		fclose(producerFile); 
+           }
             printf("%lu tuples produced\n", i );
          }
          sem_post(&sem);
@@ -126,7 +133,6 @@ void *produce( void  )
     }
     logIndex++;
     producerLog[logIndex] = NULL;
-    fclose(producerFile);
 }
 
 
@@ -148,7 +154,9 @@ void *consume( void  )
     consumerLog[logIndex]->value = 0;
     consumerLog[logIndex]->key = get_current_time_with_ms()/1000;
     
+    consumerFile = fopen(consumerFP, "a+");    
     fprintf(consumerFile, "%llu, %lu, %lu \n", consumerLog[logIndex]->key, consumerLog[logIndex]->value, 0);
+    fclose(consumerFile);
     unsigned long long startTime = consumerLog[logIndex]->key;
 
     for (unsigned long i = 0; i < benchmarkCount; i ++){
@@ -166,8 +174,10 @@ void *consume( void  )
             unsigned long long interval = consumerLog[logIndex]->key - startTime;
             if(interval != 0){
                 unsigned long currentThroughput = i / interval;
-                fprintf(consumerFile, "%llu, %lu, %lu \n", consumerLog[logIndex]->key, consumerLog[logIndex]->value, currentThroughput);  
-            }
+               	 consumerFile = fopen(consumerFP, "a+");
+		 fprintf(consumerFile, "%llu, %lu, %lu \n", consumerLog[logIndex]->key, consumerLog[logIndex]->value, currentThroughput);  
+           	 fclose(consumerFile);
+	     }
            printf("%lu tuples sent from buffer\n", i );
         }
      free(buffer[i]);
@@ -175,7 +185,6 @@ void *consume( void  )
     logIndex++;
     consumerLog[logIndex]=NULL;
 
-    fclose(consumerFile);
 
      if(read_size == 0)
      {
@@ -216,14 +225,18 @@ void fireServerSocket(void){
     client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c);
 }
 
+
+
+
+
 void initLogFiles(void){
-    char * producerFP = malloc(2000);
+     producerFP = malloc(2000);
     char hostname[1024];
     gethostname(hostname, 1024);
     sprintf(producerFP, "%sproducer-%s-%d.csv",statsPath,hostname,port  );
  
 
-    char * consumerFP = malloc(2000);
+    consumerFP = malloc(2000);
     sprintf(consumerFP, "%sconsumer-%s-%d.csv",statsPath,hostname,port  );
     
     producerFile = fopen(producerFP, "w");
@@ -232,6 +245,8 @@ void initLogFiles(void){
          printf("Error opening file!\n");
          exit(1);
     } 
+   fclose(producerFile);
+   fclose(consumerFile);
 }
 
 int main(int argc , char *argv[])
