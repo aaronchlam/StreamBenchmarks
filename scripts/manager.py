@@ -7,39 +7,30 @@ import os
 import signal
 import shutil
 import glob
+import yaml
 
-storm_home = '/share/hadoop/jkarimov/workDir/systems/apache-storm-1.0.2/'
-spark_home = '/share/hadoop/jkarimov/workDir/systems/spark-2.0.0-bin-hadoop2.7//'
-flink_home = '/share/hadoop/jkarimov/workDir/systems/flink-1.1.2/'
-project_dir = '/share/hadoop/jkarimov/workDir/StreamBenchmarks/'
+conf_file='/share/hadoop/jkarimov/workDir/StreamBenchmarks/conf/benchmarkConf.yaml'
+
+with open(conf_file, 'r') as f:
+    common_config = yaml.load(f)
+
 conf_file = '/share/hadoop/jkarimov/workDir/StreamBenchmarks/conf/benchmarkConf.yaml'
-zk_home = '/share/hadoop/jkarimov/workDir/systems/zookeeper-3.4.9/'
-storm_home = '/share/hadoop/jkarimov/workDir/systems/apache-storm-1.0.2/'
-slaves = '/share/hadoop/jkarimov/workDir/StreamBenchmarks/scripts/slaves'
-master = '/share/hadoop/jkarimov/workDir/StreamBenchmarks/scripts/master'
-spark_output_dir = ''
-flink_output_dir = ''
-storm_output_dir = ''
-kafka_output_dir = ''
-conf_file = '/share/hadoop/jkarimov/workDir/StreamBenchmarks/conf/benchmarkConf.yaml'
-datagenerator_hosts = [ ]
-datagenerator_port = 0
 
 def start_flink():
-	sp.call([flink_home + "bin/start-cluster.sh"])
+	sp.call([  common_config['flink_home'] + "bin/start-cluster.sh"])
 
 def stop_flink():
-	sp.call(flink_home + "bin/stop-cluster.sh")
+	sp.call([ common_config['flink_home'] + "bin/stop-cluster.sh"])
 
 def flink_benchmark():
-	clear_dir(project_dir + "output/flink/")
-	clear_dir(project_dir + "output/stats/flink/")
-	sp.call([flink_home + "bin/flink" , "run", project_dir + "flink-benchmarks/target/flink-benchmarks-0.1.0.jar", "--confPath",conf_file])	
+	clear_dir( common_config['project_home']  + "output/flink/")
+	clear_dir( common_config['project_home']  + "output/stats/flink/")
+	sp.call([ common_config['flink_home'] + "bin/flink" , "run", common_config['project_home'] + "flink-benchmarks/target/flink-benchmarks-0.1.0.jar", "--confPath",conf_file])	
 
 def start_spark():
-	sp.call([spark_home + "sbin/start-all.sh"])
+	sp.call([  common_config['spark_home'] + "sbin/start-all.sh"])
 def stop_spark():
-	sp.call([ spark_home + "sbin/stop-all.sh" ])
+	sp.call([ common_config['spark_home'] + "sbin/stop-all.sh" ])
 
 def clear_dir(path):
 	filelist = [ f for f in os.listdir(path) ]
@@ -50,17 +41,19 @@ def clear_dir(path):
 			os.remove(path+f)
 
 def spark_benchmark():
-	clear_dir(project_dir + "output/spark/")
-	clear_dir(project_dir + "output/stats/spark/")
-	sp.call([spark_home + 'bin/spark-submit' ,'--class' ,'spark.benchmark.SparkBenchmark', project_dir + 'spark-benchmarks/target/spark-benchmarks-0.1.0.jar' , conf_file])
+	clear_dir( common_config['project_home']  + "output/spark/")
+	clear_dir( common_config['project_home']  + "output/stats/spark/")
+	sp.call([ common_config['spark_home']  + 'bin/spark-submit' ,'--class' ,'spark.benchmark.SparkBenchmark', common_config['project_home']  + 'spark-benchmarks/target/spark-benchmarks-0.1.0.jar' , conf_file])
 
 def start_zookeeper():
-	sp.call([zk_home + 'bin/zkServer.sh', 'start'])	
+	sp.call([common_config['zk_home'] + 'bin/zkServer.sh', 'start'])	
 	time.sleep(2)
 def stop_zookeeper():
-        sp.call([zk_home + 'bin/zkServer.sh', 'stop'])
+        sp.call([common_config['zk_home'] + 'bin/zkServer.sh', 'stop'])
 
 def start_storm():
+	storm_home = common_config['storm_home']
+	zk_home = common_config['zk_home']
 	start_zookeeper()
 	sp.Popen([storm_home + 'bin/storm' ,'nimbus' ], stdout=sp.PIPE,stderr=sp.STDOUT)
 	start_supervisor_node = '\'' +   storm_home + 'bin/storm supervisor\'' 
@@ -69,12 +62,11 @@ def start_storm():
 	print('nimbus started')
         sp.Popen([storm_home + 'bin/storm' ,'ui' ], stdout=sp.PIPE,stderr=sp.STDOUT)
         time.sleep(5)
-	with open(slaves) as f:
-		for host in f:
-			#print host
-			sp.Popen (["ssh", host.strip() ,'\'' + start_supervisor_node + '\''   ],stdout=sp.PIPE,stderr=sp.STDOUT) 
-			time.sleep(5)
-        		print('supervisor ' + host + ' started')
+	for host in common_config['slaves']:
+		#print host
+		sp.Popen (["ssh", host.strip() ,'\'' + start_supervisor_node + '\''   ],stdout=sp.PIPE,stderr=sp.STDOUT) 
+		time.sleep(5)
+        	print('supervisor ' + host + ' started')
 	print('storm started')
 		
 
@@ -88,21 +80,17 @@ def stop_storm():
 
 def stop_process_all(name):
 	print name
-	with open(slaves) as f:
-		for host in f:
-			stop_process(name,host)
-	with open(master) as f:
-		for host in f:
-			stop_process(name,host)
+	for host in common_config['slaves']:
+		stop_process(name,host)
+	stop_process(name, common_config['master'] )
 
 def storm_benchmark():
-	clear_dir(project_dir + "output/trident/")
-	clear_dir(project_dir + "output/stats/trident/")
-	sp.call([storm_home + "bin/storm", "jar", project_dir + 'storm-benchmarks/target/storm-benchmarks-0.1.0.jar' , 'trident.benchmark.TridentBenchmark', conf_file,'cluster','topologyName'])
+	clear_dir( common_config['project_home']  + "output/storm/")
+	clear_dir( common_config['project_home']  + "output/stats/storm/")
+	sp.call([common_config['storm_home'] + "bin/storm", "jar", common_config['project_home']  + 'storm-benchmarks/target/storm-benchmarks-0.1.0.jar' , 'storm.benchmark.StormBenchmark', conf_file,'cluster','topologyName'])
 
 def merge_output_files():
-	print spark_output_dir
-	sp.call(["cat",spark_output_dir + '*/*', '>','spark.csv'])
+	sp.call(["cat", common_config['spark.output']  + '*/*', '>','spark.csv'])
 
 def concat_files_in_dir(input_dir, output_dir):
 	read_files = glob.glob(input_dir )
@@ -115,53 +103,26 @@ def concat_files_in_dir(input_dir, output_dir):
             			outfile.write(infile.read().replace('(', '').replace(')', ''))
 
 
-def parse_conf_file():
-	with open(conf_file) as f:
-		content = f.readlines()
-	for index,line in enumerate(content):
-		if 'flink.output' in line:
-			global flink_output_dir
-			flink_output_dir =  line.split(None)[1].replace("\"","")
-		elif 'spark.output' in line:
-			global spark_output_dir
-			spark_output_dir =  line.split(None)[1].replace("\"","")
-		elif 'trident.output' in line:
-			global storm_output_dir
-			storm_output_dir =  line.split(None)[1].replace("\"","")
-		elif 'kafka.output' in line:
-			global kafka_output_dir
-			kafka_output_dir =  line.split(None)[1].replace("\"","")
-		elif 'datasourcesocket.port' in line:
-			global datagenerator_port
-			datagenerator_port = line.split(None)[1].replace("\"","")
-		elif 'datasourcesocket.hosts' in line:
-			global datagenerator_hosts
-			tempInd = index + 1
-			while '-' in content[tempInd]:
-				datagenerator_hosts.append( content[tempInd].split(None)[1].replace("\"",""))
-				tempInd = tempInd + 1
-
-
 def start_data_generators():
-	data_generator_instance_script = '\'' + 'java -cp ' + project_dir + 'data-generator/target/data-generator-0.1.0.jar data.source.socket.DataGenerator ' + project_dir + 'conf/benchmarkConf.yaml' + '\''
-	
-	global datagenerator_hosts
-	print (data_generator_instance_script)
-	for host in datagenerator_hosts:
-		print(host)
-		sp.Popen (["ssh", host.strip() ,  '\'' + data_generator_instance_script + '\''  ],stdout=sp.PIPE,stderr=sp.STDOUT)
-		time.sleep(2)
-		print('datagenerator ' + host.strip() + ' started')
-	print('data generators started')
+	clear_dir( common_config['datagenerator.stats.dir'] )
+	selectivities = common_config['datagenerator.selectivities']
+	for host in common_config['datasourcesocket.hosts']:
+		idx = 0
+		for  port in common_config['datasourcesocket.ports']:
+			start_script = '\'' +  common_config['project_home'] + 'data-generator/benchmark_data_generator ' +  str( selectivities[idx]) + ' ' + str(common_config['datagenerator.benchmarkcount']) + ' ' + str(common_config['datagenerator.loginterval']) + ' ' + str(port) + ' ' + common_config['datagenerator.stats.dir'] + ' ' + str(common_config['datagenerator.sleep.us']) + '\''
+			idx = idx+1
+			sp.Popen (["ssh", host.strip() , '\'' + start_script + '\'' ],stdout=sp.PIPE,stderr=sp.STDOUT)
+			
+def stop_data_generators():
+	stop_process_all('benchmark_data_generator')
 
+def start_vmstats():
+        nodes =  ' '.join( common_config['slaves'] ) + ' ' + common_config['master']  
+	sp.call([ common_config['project_home'] + 'scripts/start_vmstats.sh ' + nodes  ],shell=True) 	
+def stop_vmstats():
+	stop_process_all('vmstat')
+#parse_conf_file()
 
-def start_data_generator(partition):
-	sp.call(['java','-Xms20g' ,'-Xmx40g',   '-cp', project_dir + 'data-generator/target/data-generator-0.1.0.jar', 'data.source.socket.DataGenerator', project_dir + 'conf/benchmarkConf.yaml',''+partition ])
-
-
-
-parse_conf_file()
-print(datagenerator_hosts)
 if(len(sys.argv[1:]) == 1):
 	arg = sys.argv[1]
 	if (arg == "start-flink"):
@@ -188,12 +149,18 @@ if(len(sys.argv[1:]) == 1):
 		storm_benchmark()
 	elif(arg == "concat-spark"):
 		concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/spark/*/*', '/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/spark_temp.csv')
-	elif(arg == "concat-trident"):
-		 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/trident/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/trident_temp.csv')
+	elif(arg == "concat-storm"):
+		 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/storm/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/storm_temp.csv')
 	elif(arg == "concat-flink"):
                 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/flink/*/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/flink_temp.csv')
 	elif(arg == "start-datagenerators"):
 		start_data_generators()
+	elif(arg == "start-vmstats"):
+		start_vmstats()
+	elif(arg == "stop-vmstats"):
+		stop_vmstats()
+	elif(arg == "stop-datagenerators"):
+		stop_data_generators()
 elif(len(sys.argv[1:]) == 2):
 	arg1 = sys.argv[1]	
 	arg2 = sys.argv[2]

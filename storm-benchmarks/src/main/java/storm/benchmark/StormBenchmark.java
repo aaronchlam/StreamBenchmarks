@@ -4,16 +4,7 @@
  */
 package storm.benchmark;
 
-import java.io.*;
-import java.net.InetAddress;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import benchmark.common.CommonConfig;
-import com.esotericsoftware.yamlbeans.YamlReader;
-import org.apache.hadoop.util.hash.Hash;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
@@ -39,6 +30,11 @@ import org.apache.storm.tuple.Tuple;
 import org.apache.storm.tuple.Values;
 import org.apache.storm.windowing.TupleWindow;
 import org.json.JSONObject;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.storm.topology.base.BaseWindowedBolt.Duration;
 
@@ -256,11 +252,15 @@ public class StormBenchmark {
 
     private static StormTopology windowedAggregation(TopologyBuilder builder){
         for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            builder.setSpout("source"+host, new SocketReceiver(host, CommonConfig.DATASOURCE_PORT()),CommonConfig.PARALLELISM());
+            for(Integer port: CommonConfig.DATASOURCE_PORTS()){
+                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),CommonConfig.PARALLELISM());
+            }
         }
         BoltDeclarer bolt= builder.setBolt("event_deserializer", new DeserializeBolt(), CommonConfig.PARALLELISM());
         for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            bolt = bolt.shuffleGrouping("source"+host);
+            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
+                bolt = bolt.shuffleGrouping("source"+host +"" + port);
+            }
         }
         builder.setBolt("sliding_avg", new SlidingWindowAvgBolt()
                 .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS), new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS)) ,CommonConfig.PARALLELISM()).partialKeyGrouping("event_deserializer", new Fields("geo") );
@@ -272,11 +272,15 @@ public class StormBenchmark {
 
     private static StormTopology dummyConsumer(TopologyBuilder builder) {
         for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            builder.setSpout("source"+host, new SocketReceiver(host, CommonConfig.DATASOURCE_PORT()),CommonConfig.PARALLELISM());
+            for(Integer port: CommonConfig.DATASOURCE_PORTS()){
+                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),CommonConfig.PARALLELISM());
+            }
         }
         BoltDeclarer bolt= builder.setBolt("event_filter", new FilterBolt(), CommonConfig.PARALLELISM());
         for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            bolt = bolt.shuffleGrouping("source"+host);
+            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
+                bolt = bolt.shuffleGrouping("source"+host + "" + port);
+            }
         }
         builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
         return builder.createTopology();
@@ -284,7 +288,9 @@ public class StormBenchmark {
 
     private static StormTopology windowedJoin(TopologyBuilder builder){
         for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            builder.setSpout("source"+host, new SocketReceiver(host, CommonConfig.DATASOURCE_PORT()),CommonConfig.PARALLELISM());
+            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
+                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),CommonConfig.PARALLELISM());
+            }
         }
         BoltDeclarer joinBolt1= builder.setBolt("event_deserializer1", new DeserializeBolt(), CommonConfig.PARALLELISM());
         BoltDeclarer joinBolt2= builder.setBolt("event_deserializer2", new DeserializeBolt(), CommonConfig.PARALLELISM());

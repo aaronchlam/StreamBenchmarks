@@ -43,8 +43,10 @@ object SparkBenchmark {
   def dummyConsumer(ssc: StreamingContext) = {
     var socketDataSource: DStream[String] = null;
     for (host <- CommonConfig.DATASOURCE_HOSTS()) {
-      val socketDataSource_i: DStream[String] = ssc.receiverStream(new SocketReceiver(host, CommonConfig.DATASOURCE_PORT()))
-      socketDataSource = if (socketDataSource == null) socketDataSource_i else socketDataSource.union(socketDataSource_i)
+      for(port <- CommonConfig.DATASOURCE_PORTS()){
+        val socketDataSource_i: DStream[String] = ssc.receiverStream(new SocketReceiver(host, port))
+        socketDataSource = if (socketDataSource == null) socketDataSource_i else socketDataSource.union(socketDataSource_i)
+      }
     }
     socketDataSource.filter(t=> false).saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
   }
@@ -52,17 +54,18 @@ object SparkBenchmark {
   def windowedJoin(ssc: StreamingContext) = {
     var joinSource1: DStream[String] = null;
     var joinSource2: DStream[String] = null;
-    var index=0
     for (host <- CommonConfig.DATASOURCE_HOSTS()) {
-
-      val socketDataSource_i: DStream[String] = ssc.receiverStream(new SocketReceiver(host, CommonConfig.DATASOURCE_PORT()))
-      if (index % 2 == 1) {
-        joinSource1 = if (joinSource1 == null) socketDataSource_i else joinSource1.union(socketDataSource_i)
+      var index=0
+      for(port <- CommonConfig.DATASOURCE_PORTS()) {
+        val socketDataSource_i: DStream[String] = ssc.receiverStream(new SocketReceiver(host, port ))
+        if (index % 2 == 1) {
+          joinSource1 = if (joinSource1 == null) socketDataSource_i else joinSource1.union(socketDataSource_i)
+        }
+        else {
+          joinSource2 = if (joinSource2 == null) socketDataSource_i else joinSource2.union(socketDataSource_i)
+        }
+        index = index + 1
       }
-      else {
-        joinSource2 = if (joinSource2 == null) socketDataSource_i else joinSource2.union(socketDataSource_i)
-      }
-      index = index + 1
     }
     val windowedStream1 = joinSource1.map(s => {
       val obj: JSONObject = new JSONObject(s)
@@ -94,8 +97,10 @@ object SparkBenchmark {
   def keyedWindowedAggregationBenchmark(ssc: StreamingContext) = {
     var socketDataSource: DStream[String] = null;
     for (host <- CommonConfig.DATASOURCE_HOSTS()) {
-      val socketDataSource_i: DStream[String] = ssc.receiverStream(new SocketReceiver(host, CommonConfig.DATASOURCE_PORT()))
-      socketDataSource = if (socketDataSource == null) socketDataSource_i else socketDataSource.union(socketDataSource_i)
+      for(port <- CommonConfig.DATASOURCE_PORTS()){
+        val socketDataSource_i: DStream[String] = ssc.receiverStream(new SocketReceiver(host, port))
+        socketDataSource = if (socketDataSource == null) socketDataSource_i else socketDataSource.union(socketDataSource_i)
+      }
     }
 
     val keyedStream = socketDataSource.map(s => {

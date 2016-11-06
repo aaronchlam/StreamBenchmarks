@@ -5,8 +5,6 @@
 package flink.benchmark;
 
 import benchmark.common.CommonConfig;
-import com.esotericsoftware.yamlbeans.YamlReader;
-import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.JoinFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
@@ -18,20 +16,13 @@ import org.apache.flink.api.java.tuple.Tuple6;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.sink.WriteFormatAsCsv;
-import org.apache.flink.streaming.api.functions.sink.WriteSinkFunctionByMillis;
 import org.apache.flink.streaming.api.windowing.assigners.SlidingProcessingTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.connectors.fs.RollingSink;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 /**
  * To Run:  flink run target/flink-benchmarks-0.1.0-FlinkBenchmark.jar  --confPath "../conf/benchmarkConf.yaml"
@@ -76,8 +67,10 @@ public class FlinkBenchmark {
     private static void dummyConsumer(StreamExecutionEnvironment env){
         DataStream<String> socketSource = null;
         for (String host : CommonConfig.DATASOURCE_HOSTS()) {
-            DataStream<String> socketSource_i = env.socketTextStream(host, CommonConfig.DATASOURCE_PORT());
-            socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);
+            for (int port: CommonConfig.DATASOURCE_PORTS()){
+                DataStream<String> socketSource_i = env.socketTextStream(host, port);
+                socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);
+            }
         }
         DataStream<String> filteredStream = socketSource.filter(t->false);
         RollingSink sink = new RollingSink<String>(CommonConfig.FLINK_OUTPUT());
@@ -94,13 +87,15 @@ public class FlinkBenchmark {
         DataStream<String> joinStream1 = null;
         DataStream<String> joinStream2 = null;
 
-        for (int i = 0; i < CommonConfig.DATASOURCE_HOSTS().size(); i++) {
-            String host = CommonConfig.DATASOURCE_HOSTS().get(i);
-            DataStream<String> socketSource_i = env.socketTextStream(host, CommonConfig.DATASOURCE_PORT());
-            if (i % 2 == 0) {
-                joinStream1 = joinStream1 == null ? socketSource_i : joinStream1.union(socketSource_i);
-            } else {
-                joinStream2 = joinStream2 == null ? socketSource_i : joinStream2.union(socketSource_i);
+        for (String host: CommonConfig.DATASOURCE_HOSTS()) {
+            for (int i = 0; i < CommonConfig.DATASOURCE_PORTS().size(); i++){
+                int port = CommonConfig.DATASOURCE_PORTS().get(i);
+                DataStream<String> socketSource_i = env.socketTextStream(host, port);
+                if (i % 2 == 0) {
+                    joinStream1 = joinStream1 == null ? socketSource_i : joinStream1.union(socketSource_i);
+                } else {
+                    joinStream2 = joinStream2 == null ? socketSource_i : joinStream2.union(socketSource_i);
+                }
             }
         }
 
@@ -172,8 +167,10 @@ public class FlinkBenchmark {
     private static void keyedWindowedAggregationBenchmark(StreamExecutionEnvironment env){
         DataStream<String> socketSource = null;
         for (String host : CommonConfig.DATASOURCE_HOSTS()) {
-            DataStream<String> socketSource_i = env.socketTextStream(host, CommonConfig.DATASOURCE_PORT());
-            socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);
+            for (Integer port: CommonConfig.DATASOURCE_PORTS()){
+                DataStream<String> socketSource_i = env.socketTextStream(host, port);
+                socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);
+            }
         }
 
         DataStream<Tuple5<String, Long, Double, Double,Long>> messageStream = socketSource.map(new MapFunction<String, Tuple5<String, Long, Double, Double,Long>>() {

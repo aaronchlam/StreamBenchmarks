@@ -42,6 +42,11 @@ typedef struct LogInfo {
 
 logInfo**  producerLog;
 logInfo** consumerLog;
+FILE *consumerFile;
+FILE *producerFile;
+
+char * producerFP;
+char * consumerFP;
 
 unsigned long long  get_current_time_with_ms (void)
 {
@@ -51,24 +56,6 @@ unsigned long long  get_current_time_with_ms (void)
     return  millisecondsSinceEpoch;
 }
 
-
-void writeStatsToFile(char * path, logInfo**  logs){
-      FILE *f = fopen(path, "w");
-      if (f == NULL)  {
-          printf("Error opening file!\n");
-          exit(1);
-          }
-      int index;
-      for(index = 0; ;index++){
-        if(logs[index]== NULL){
-            break;
-            } else {
-                fprintf(f, "%llu, %lu\n", logs[index]->key, logs[index]->value);
-            }
-        }
-        fclose(f);
-	printf("Throughput for  %s is %d tuples ps \n",path, benchmarkCount/(logs[index-1]->key - logs[0]->key  ));
-}
 
 
 void initializeGeoList( double d){
@@ -112,8 +99,12 @@ void *produce( void  )
     producerLog[logIndex] = malloc(sizeof(logInfo));
     producerLog[logIndex]->value = 0;
     producerLog[logIndex]->key = get_current_time_with_ms()/1000;
-    
+    producerFile = fopen(producerFP, "a+");
+    fprintf(producerFile, "%llu, %lu, %lu \n", producerLog[logIndex]->key, producerLog[logIndex]->value, 0);
+    fclose(producerFile);    
 
+
+    unsigned long long startTime =     producerLog[logIndex]->key;
     for (unsigned long i = 0; i < benchmarkCount; i++){
 
          buffer[i] = generateJsonString();
@@ -125,12 +116,19 @@ void *produce( void  )
             producerLog[logIndex] = malloc(sizeof(logInfo));
             producerLog[logIndex]->value = i;
             producerLog[logIndex]->key = sec;
+            
+            unsigned long long interval =   producerLog[logIndex]->key - startTime;
+            if(interval != 0){
+                 unsigned long currentThroughput = i / interval;
+                producerFile = fopen(producerFP, "a+"); 
+		fprintf(producerFile, "%llu, %lu, %lu \n", producerLog[logIndex]->key, producerLog[logIndex]->value, currentThroughput);
+		fclose(producerFile); 
+           }
             printf("%lu tuples produced\n", i );
          }
          sem_post(&sem);
 	if(sleepTime){
-	nsleep(sleepTime * 1000);
-	printf("sleep called\n");
+        	nsleep(sleepTime );
         }
     }
     logIndex++;
@@ -155,6 +153,12 @@ void *consume( void  )
     consumerLog[logIndex] = malloc(sizeof(logInfo));
     consumerLog[logIndex]->value = 0;
     consumerLog[logIndex]->key = get_current_time_with_ms()/1000;
+    
+    consumerFile = fopen(consumerFP, "a+");    
+    fprintf(consumerFile, "%llu, %lu, %lu \n", consumerLog[logIndex]->key, consumerLog[logIndex]->value, 0);
+    fclose(consumerFile);
+    unsigned long long startTime = consumerLog[logIndex]->key;
+
     for (unsigned long i = 0; i < benchmarkCount; i ++){
         sem_wait(&sem);
         write(client_sock , buffer[i] , strlen(buffer[i]));
@@ -166,7 +170,15 @@ void *consume( void  )
             consumerLog[logIndex] = malloc(sizeof(logInfo));
             consumerLog[logIndex]->value = i;
             consumerLog[logIndex]->key = sec;
-            printf("%lu tuples sent from buffer\n", i );
+          
+            unsigned long long interval = consumerLog[logIndex]->key - startTime;
+            if(interval != 0){
+                unsigned long currentThroughput = i / interval;
+               	 consumerFile = fopen(consumerFP, "a+");
+		 fprintf(consumerFile, "%llu, %lu, %lu \n", consumerLog[logIndex]->key, consumerLog[logIndex]->value, currentThroughput);  
+           	 fclose(consumerFile);
+	     }
+           printf("%lu tuples sent from buffer\n", i );
         }
      free(buffer[i]);
     }
@@ -214,6 +226,29 @@ void fireServerSocket(void){
 }
 
 
+
+
+
+void initLogFiles(void){
+     producerFP = malloc(2000);
+    char hostname[1024];
+    gethostname(hostname, 1024);
+    sprintf(producerFP, "%sproducer-%s-%d.csv",statsPath,hostname,port  );
+ 
+
+    consumerFP = malloc(2000);
+    sprintf(consumerFP, "%sconsumer-%s-%d.csv",statsPath,hostname,port  );
+    
+    producerFile = fopen(producerFP, "w");
+    consumerFile = fopen(consumerFP, "w");
+    if (consumerFile == NULL || producerFile == NULL)  {
+         printf("Error opening file!\n");
+         exit(1);
+    } 
+   fclose(producerFile);
+   fclose(consumerFile);
+}
+
 int main(int argc , char *argv[])
 {
     double partitionSize;
@@ -231,23 +266,14 @@ int main(int argc , char *argv[])
     
     sem_init(&sem, 0 , 0);
     buffer = malloc (benchmarkCount * sizeof(*buffer));   
-
+    
     fireServerSocket(); 
+    initLogFiles();
     pthread_create( &producer, NULL, produce, NULL);
     pthread_create( &consumer, NULL, consume, NULL);
 
      pthread_join( producer, NULL);
      pthread_join( consumer, NULL);
-    char * producerFP = malloc(2000);
-    char hostname[1024];
-    gethostname(hostname, 1024);
-    sprintf(producerFP, "%sproducer-%s.csv",statsPath,hostname  );
-    writeStatsToFile(producerFP,producerLog);
-
-    char * consumerFP = malloc(2000);
-    sprintf(consumerFP, "%sconsumer-%s.csv",statsPath,hostname  );
-    writeStatsToFile(consumerFP,consumerLog);
-
     free(buffer);
     return 0;
          //Send ehe message back to client

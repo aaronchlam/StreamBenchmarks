@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -16,7 +17,7 @@ public class CommonConfig {
 
     private static String SPARK_BATCHTIME = "spark.batchtime";
     private static String SPARK_MASTER = "spark.master";
-    private static String DATASOURCE_PORT = "datasourcesocket.port";
+    private static String DATASOURCE_PORTS = "datasourcesocket.ports";
     private static String DATASOURCE_HOSTS = "datasourcesocket.hosts";
 
     private static String FLUSH_RATE = "flush.rate";
@@ -68,8 +69,12 @@ public class CommonConfig {
     public static String SPARK_MASTER() {
         return instance.get(SPARK_MASTER).toString();
     }
-    public static int DATASOURCE_PORT() {
-        return new Integer(instance.get(DATASOURCE_PORT).toString());
+    public static List<Integer> DATASOURCE_PORTS() {
+        List<Integer> myList = new ArrayList<>();
+        for(String port: (List<String> )instance.get(DATASOURCE_PORTS)){
+            myList.add(new Integer(port));
+        }
+        return myList;
     }
     public static List<String> DATASOURCE_HOSTS() {
         return (List<String>) instance.get(DATASOURCE_HOSTS);
