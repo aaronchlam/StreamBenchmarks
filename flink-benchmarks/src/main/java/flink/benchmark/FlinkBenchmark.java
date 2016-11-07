@@ -173,35 +173,35 @@ public class FlinkBenchmark {
             }
         }
 
-        DataStream<Tuple5<String, Long, Double, Double,Long>> messageStream = socketSource.map(new MapFunction<String, Tuple5<String, Long, Double, Double,Long>>() {
+        DataStream<Tuple5<String, Long, Double, Integer,Integer>> messageStream = socketSource.map(new MapFunction<String, Tuple5<String, Long, Double, Integer,Integer>>() {
                     @Override
-                    public Tuple5<String, Long, Double, Double,Long> map(String s) throws Exception {
+                    public Tuple5<String, Long, Double, Integer,Integer> map(String s) throws Exception {
                         JSONObject obj = new JSONObject(s);
                         String geo = obj.getString("geo");
                         Double price = obj.getDouble("price");
-                        Long ts = obj.has("ts") ? obj.getLong("ts"):System.currentTimeMillis();
-                        return new Tuple5<String, Long, Double, Double,Long>(geo, ts , price, price,1L);
+                        Long ts =  obj.getLong("ts");
+                        return new Tuple5<String, Long, Double, Integer,Integer>(geo, ts , price, 1 ,1);
                     }
                 });
 
-        DataStream<Tuple5<String, Long, Double, Double,Long>> aggregatedStream = messageStream.keyBy(0)
+        DataStream<Tuple5<String, Long, Double, Integer,Integer>> aggregatedStream = messageStream.keyBy(0)
                 .timeWindow(Time.milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Time.milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE())).
-                        reduce(new ReduceFunction<Tuple5<String, Long, Double, Double,Long>>() {
+                        reduce(new ReduceFunction<Tuple5<String, Long, Double, Integer,Integer>>() {
                             @Override
-                            public Tuple5<String, Long, Double, Double,Long> reduce(Tuple5<String, Long, Double, Double,Long> t1, Tuple5<String, Long, Double, Double,Long> t2) throws Exception {
-                                Double maxPrice = Math.max(t1.f2, t2.f2);
-                                Double minPrice = Math.min(t1.f3, t2.f3);
+                            public Tuple5<String, Long, Double, Integer,Integer> reduce(Tuple5<String, Long, Double, Integer,Integer> t1, Tuple5<String, Long, Double, Integer,Integer> t2) throws Exception {
+                                Double avgPrice = (t1.f3 * t1.f2 + t2.f3 * t2.f2) / t1.f3 + t2.f3;
+                                Integer avgCount = t1.f3 + t2.f3;
+                                Integer windowCount = t1.f4 + t2.f4;
                                 Long ts = Math.max(t1.f1, t2.f1);
-                                Long windowElements = t1.f4 + t2.f4;
-                                return new Tuple5<String, Long, Double, Double,Long>(t1.f0, ts, maxPrice, minPrice,windowElements);
+                                return new Tuple5<String, Long, Double, Integer,Integer>(t1.f0, ts, avgPrice, avgCount,windowCount);
                             }
                         });
 
 
-        DataStream<Tuple6<String, Long, Double, Double,Long,Long>> mappedStream = aggregatedStream.map(new MapFunction<Tuple5<String, Long, Double, Double,Long>, Tuple6<String, Long, Double, Double,Long, Long>>() {
+        DataStream<Tuple5<String, Long, Double,Integer,Long>> mappedStream = aggregatedStream.map(new MapFunction<Tuple5<String, Long, Double, Integer, Integer>, Tuple5<String, Long, Double, Integer, Long>>() {
             @Override
-            public Tuple6<String, Long, Double, Double,Long,Long> map(Tuple5<String, Long, Double, Double,Long> t1) throws Exception {
-                return new Tuple6<String, Long, Double, Double,Long, Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2, t1.f3,t1.f4, t1.f1);
+            public Tuple5<String, Long, Double, Integer, Long> map(Tuple5<String, Long, Double, Integer, Integer> t1) throws Exception {
+                return new Tuple5<String, Long, Double,Integer,Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2,t1.f4, t1.f1);
             }
         });
 
