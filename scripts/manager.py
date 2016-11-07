@@ -79,10 +79,8 @@ def stop_storm():
 	stop_process_all('storm')
 
 def stop_process_all(name):
-	print name
-	for host in common_config['slaves']:
+	for host in common_config['nodes.all']:
 		stop_process(name,host)
-	stop_process(name, common_config['master'] )
 
 def storm_benchmark():
 	clear_dir( common_config['project_home']  + "output/storm/")
@@ -109,7 +107,7 @@ def start_data_generators():
 	for host in common_config['datasourcesocket.hosts']:
 		idx = 0
 		for  port in common_config['datasourcesocket.ports']:
-			start_script = '\'' +  common_config['project_home'] + 'data-generator/benchmark_data_generator ' +  str( selectivities[idx]) + ' ' + str(common_config['datagenerator.benchmarkcount']) + ' ' + str(common_config['datagenerator.loginterval']) + ' ' + str(port) + ' ' + common_config['datagenerator.stats.dir'] + ' ' + str(common_config['datagenerator.sleep.us']) + '\''
+			start_script = '\'' +  common_config['project_home'] + 'data-generator/benchmark_data_generator ' +  str( selectivities[idx]) + ' ' + str(common_config['datagenerator.benchmarkcount']) + ' ' + str(common_config['datagenerator.loginterval']) + ' ' + str(port) + ' ' + common_config['datagenerator.stats.dir'] + ' ' + str(common_config['datagenerator.sleep.ns']) + ' ' + str( common_config['datagenerator.nonsleepcount']) +  '\''
 			idx = idx+1
 			sp.Popen (["ssh", host.strip() , '\'' + start_script + '\'' ],stdout=sp.PIPE,stderr=sp.STDOUT)
 			
