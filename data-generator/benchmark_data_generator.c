@@ -49,6 +49,9 @@ FILE *producerFile;
 char * producerFP;
 char * consumerFP;
 int nonSleepCount;
+int sustainability_limit;
+
+
 
 unsigned long long  get_current_time_with_ms (void)
 {
@@ -156,6 +159,7 @@ void *consume( void  )
      
      // sending tuples
     int logIndex = 0;
+    int queue_size ;
     consumerLog = malloc(((benchmarkCount/logInterval) +3) * sizeof (*consumerLog));
     consumerLog[logIndex] = malloc(sizeof(logInfo));
     consumerLog[logIndex]->value = 0;
@@ -167,6 +171,19 @@ void *consume( void  )
         sem_wait(&sem);
         write(client_sock , buffer[i] , strlen(buffer[i]));
        	if(i % logInterval == 0){
+
+            sem_getvalue(&sem, &queue_size);
+            if(queue_size > sustainability_limit){
+                printf("Cannot sustain the input data rate \n");
+                char hostname[1024];
+                gethostname(hostname, 1024);
+                sprintf(consumerFP, "%sERROR-%s-%d.csv",statsPath,hostname,port  );
+                consumerFile = fopen(consumerFP, "w");
+                fprintf(consumerFile, "System cannot sustain the data input rate");
+                fclose(consumerFile);
+                exit(0);
+            }
+
             unsigned long long sec  = get_current_time_with_ms()/1000;
             if (consumerLog[logIndex]->key != get_current_time_with_ms()/1000){
                 logIndex++;
@@ -190,6 +207,9 @@ void *consume( void  )
 	     fprintf(consumerFile, "%llu, %lu, %lu \n", consumerLog[i]->key, consumerLog[i]->value, consumerLog[i]->throughput);  
     }
     fclose(consumerFile);
+ 
+    printf("All data read by system \n");
+    msleep(1000 * 1000);
 
      if(read_size == 0)
      {
@@ -264,6 +284,7 @@ int main(int argc , char *argv[])
     statsPath = argv[5];
     sscanf(argv[6],"%lu",&sleepTime);
     sscanf(argv[7],"%d",&nonSleepCount);
+    sscanf(argv[8],"%d",&sustainability_limit);
     initializeGeoList( partitionSize);
     int seed = 123;
     srand(seed);
