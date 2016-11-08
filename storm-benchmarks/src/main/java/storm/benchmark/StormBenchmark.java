@@ -281,8 +281,8 @@ public class StormBenchmark {
 
         Config conf = new Config();
         if (runningMode.equals("cluster")) {
-            conf.setNumWorkers(CommonConfig.STORM_WORKERS());
-            conf.setNumAckers(CommonConfig.STORM_ACKERS());
+//            conf.setNumWorkers(CommonConfig.STORM_WORKERS());
+  //          conf.setNumAckers(CommonConfig.STORM_ACKERS());
             StormSubmitter.submitTopologyWithProgressBar(args[2], conf, topology);
         } else if (runningMode.equals("local")) {
 
