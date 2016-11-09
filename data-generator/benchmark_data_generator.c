@@ -17,11 +17,17 @@
 #include <unistd.h>
 
 const char *geoListAll[] = {
-            "AF", "AX", "AL", "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM","AW", "AC", "AU", "AT", "AZ", "BS", "BH", "BB",
-            "BD", "BY", "BE", "BZ", "BJ", "BM", "BT", "BW", "BO", "BA", "BV", "BR","IO", "BN", "BG", "BF", "BI", "KH", "CM", "CA", 
-            "CV", "KY", "CF", "TD", "CL", "CN", "CX", "CC", "CO", "KM", "CG", "CD","CK", "CR", "CI", "HR", "CU", "CY", "CZ", "CS",
-            "DK", "DJ", "DM", "DO", "TP", "EC", "EG", "SV", "GQ", "ER", "EE", "ET","EU", "FK", "FO", "FJ", "FI", "FR", "FX", "GF",
-            "PF", "TF", "MK", "GA", "GM", "GE", "DE", "GH", "GI", "GB", "GR", "GL","GD", "GP", "GU", "GT", "GG", "GN", "GW", "GY"};
+            "AF","AX" ,"AL","DZ","AS","AD","AO","AI","AQ","AG","AR","AM","AW","AC","AU","AT","AZ","BS","BH","BB",
+            "BD","BY","BE","BZ", "BJ","BM","BT","BW","BO","BA","BV","BR","IO","BN","BG","BF","BI","KH","CM","CA",
+            "CV","KY","CF","TD","CL","CN","CX","CC","CO","KM","CG","CD","CK","CR","CI","HR", "CU","CY","CZ","CS",
+            "DK","DJ","DM","DO","TP","EC","EG","SV","GQ","ER","EE","ET","EU","FK","FO","FJ","FI","FR","FX","GF",
+            "PF","TF","MK","GA","GM","GE","DE","GH","GI","GB","GR","GL","GD","GP","GU","GT","GG","GN","GW","GY",
+            "HT","HM","HN","HK","HU","IS","IN","ID","IR","IQ","IE","IL","IM","IT","JE","JM","JP","JO","KZ","KE",
+            "KI","KP","KR","KW","KG","LA","LV","LB","LI","LR","LY","LS","LT","LU","MO","MG","MW","MY","MV","ML",
+            "MT","MH","MQ","MR","MU","YT","MX","FM","MC","MD","MN","ME","MS","MA","MZ","MM","NA","NR","NP","NL"
+
+            
+            };
 char **reducedGeoList;
 unsigned long benchmarkCount;
 unsigned long geoIndex=0;
