@@ -32,7 +32,7 @@ public class CommonConfig {
 
     private static String BENCHMARKING_USECASE = "benchmarking.usecase";
     private static String NODE_CORES = "node.cores";
-    private static String OUTPUT_BATCHSIZE_B = "output.batchsize.b";
+    private static String OUTPUT_BATCHSIZE_KB = "output.batchsize.kb";
     private static String STORM_WORKERS = "storm.workers";
     private static String STORM_ACKERS = "storm.ackers";
     private static String PARALLELISM = "parallelism";
@@ -102,7 +102,7 @@ public class CommonConfig {
         return new Integer(instance.get(NODE_CORES).toString());
     }
     public static long OUTPUT_BATCHSIZE_KB() {
-        return new Long(instance.get(OUTPUT_BATCHSIZE_B).toString());
+        return new Long(instance.get(OUTPUT_BATCHSIZE_KB).toString());
     }
     public static String HDFS_URI() {
         return instance.get(HDFS_URI).toString();

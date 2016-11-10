@@ -96,6 +96,8 @@ public class StormBenchmark {
         private HashMap<String,Double> sumState = new HashMap<>();
         private OutputCollector collector;
         private HashMap<String,Integer> sizeState = new HashMap<>();
+        private HashMap<String,Long> tsMap = new HashMap<>();
+
         @Override
         public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
             this.collector = collector;
@@ -118,7 +120,6 @@ public class StormBenchmark {
              * subtracted. Similar optimizations might be possible in other
              * windowing computations.
              */
-            HashMap<String,Long> tsMap = new HashMap<>();
             for (Tuple tuple : newTuples) {
                 String key = tuple.getString(0);
                 sumState.put(key, sumState.getOrDefault(key,0.0 )  +  tuple.getDouble(2)    ) ;
@@ -135,10 +136,8 @@ public class StormBenchmark {
                 String geo = entry.getKey();
                 Double sum = entry.getValue();
                 collector.emit(new Values(geo, tsMap.get(geo), sum / sizeState.get(geo), sizeState.get(geo)));
-
             }
         }
-
         @Override
         public void declareOutputFields(OutputFieldsDeclarer declarer) {
             declarer.declare(new Fields("geo","ts","avg_price", "window_size"));
@@ -146,60 +145,6 @@ public class StormBenchmark {
 
     }
 
-    public static class SlidingWindowJoinBolt extends BaseWindowedBolt {
-
-        private HashMap<String,Double> sumState = new HashMap<>();
-        private OutputCollector collector;
-        private HashMap<String,Integer> sizeState = new HashMap<>();
-        @Override
-        public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
-            this.collector = collector;
-        }
-
-        @Override
-        public void execute(TupleWindow inputWindow) {
-            /*
-             * The inputWindow gives a view of
-             * (a) all the events in the window
-             * (b) events that expired since last activation of the window
-             * (c) events that newly arrived since last activation of the window
-             */
-            List<Tuple> newTuples = inputWindow.getNew();
-            List<Tuple> expiredTuples = inputWindow.getExpired();
-
-            /*
-             * Instead of iterating over all the tuples in the window to compute
-             * the sum, the values for the new events are added and old events are
-             * subtracted. Similar optimizations might be possible in other
-             * windowing computations.
-             */
-            HashMap<String,Long> tsMap = new HashMap<>();
-            for (Tuple tuple : newTuples) {
-                String key = tuple.getString(0);
-                sumState.put(key, sumState.getOrDefault(key,0.0 )  +  tuple.getDouble(2)    ) ;
-                tsMap.put(key, Math.max(tsMap.getOrDefault(key,0L), tuple.getLong(1)));
-                sizeState.put(key, sizeState.getOrDefault(key, 0  )  +  1    ) ;
-            }
-            for (Tuple tuple : expiredTuples) {
-                String key = tuple.getString(0);
-                sumState.put(key, sumState.get(key )  -  tuple.getDouble(2)    ) ;
-                sizeState.put(key, sizeState.getOrDefault(key, 0  )  -  1    ) ;
-            }
-
-            for (Map.Entry<String, Double> entry : sumState.entrySet()) {
-                String geo = entry.getKey();
-                Double sum = entry.getValue();
-                collector.emit(new Values(geo, tsMap.get(geo), sum / sizeState.get(geo), sizeState.get(geo)));
-
-            }
-        }
-
-        @Override
-        public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields("geo","ts","avg_price", "window_size"));
-        }
-
-    }
 
 
     public static class FinalTSBolt extends BaseRichBolt {
@@ -213,7 +158,6 @@ public class StormBenchmark {
         @Override
         public void execute(Tuple tuple) {
             Long ts = System.currentTimeMillis() -  tuple.getLong(1);
-            System.out.println(tuple.getString(0) + " " + ts + " "+  tuple.getLong(1) + " "+ tuple.getDouble(2) + " " + tuple.getInteger(3) );
             _collector.emit(tuple, new Values(tuple.getString(0), ts , tuple.getLong(1), tuple.getDouble(2), tuple.getInteger(3) ));
             _collector.ack(tuple);
         }
@@ -263,7 +207,9 @@ public class StormBenchmark {
             }
         }
         builder.setBolt("sliding_avg", new SlidingWindowAvgBolt()
-                .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS), new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS)) ,CommonConfig.PARALLELISM()).partialKeyGrouping("event_deserializer", new Fields("geo") );
+                .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS),
+                        new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS))
+                ,CommonConfig.PARALLELISM()).fieldsGrouping("event_deserializer", new Fields("geo") );
         builder.setBolt("event_filter", new FinalTSBolt(), CommonConfig.PARALLELISM()).shuffleGrouping("sliding_avg");
         builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
         return builder.createTopology();
@@ -286,33 +232,35 @@ public class StormBenchmark {
         return builder.createTopology();
     }
 
-    private static StormTopology windowedJoin(TopologyBuilder builder){
-        for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
-                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),CommonConfig.PARALLELISM());
-            }
-        }
-        BoltDeclarer joinBolt1= builder.setBolt("event_deserializer1", new DeserializeBolt(), CommonConfig.PARALLELISM());
-        BoltDeclarer joinBolt2= builder.setBolt("event_deserializer2", new DeserializeBolt(), CommonConfig.PARALLELISM());
 
-        int i = 0;
-        for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            if (i % 2 == 0){
-                joinBolt1 = joinBolt1.shuffleGrouping("source"+host);
-            } else {
-                joinBolt2 = joinBolt2.shuffleGrouping("source"+host);
-            }
-            i++;
-        }
-        builder.setBolt("sliding_join", new SlidingWindowJoinBolt()
-                .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS), new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS)) ,CommonConfig.PARALLELISM())
-                .partialKeyGrouping("event_deserializer1", new Fields("geo") )
-                .partialKeyGrouping("event_deserializer2", new Fields("geo") );
-        builder.setBolt("event_filter", new FinalTSBolt(), CommonConfig.PARALLELISM()).shuffleGrouping("sliding_join");
-        builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
-        return builder.createTopology();
 
-    }
+//    private static StormTopology windowedJoin(TopologyBuilder builder){
+//        for (String host: CommonConfig.DATASOURCE_HOSTS()){
+//            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
+//                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),CommonConfig.PARALLELISM());
+//            }
+//        }
+//        BoltDeclarer joinBolt1= builder.setBolt("event_deserializer1", new DeserializeBolt(), CommonConfig.PARALLELISM());
+//        BoltDeclarer joinBolt2= builder.setBolt("event_deserializer2", new DeserializeBolt(), CommonConfig.PARALLELISM());
+//
+//        int i = 0;
+//        for (String host: CommonConfig.DATASOURCE_HOSTS()){
+//            if (i % 2 == 0){
+//                joinBolt1 = joinBolt1.shuffleGrouping("source"+host);
+//            } else {
+//                joinBolt2 = joinBolt2.shuffleGrouping("source"+host);
+//            }
+//            i++;
+//        }
+//        builder.setBolt("sliding_join", new SlidingWindowJoinBolt()
+//                .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS), new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS)) ,CommonConfig.PARALLELISM())
+//                .partialKeyGrouping("event_deserializer1", new Fields("geo") )
+//                .partialKeyGrouping("event_deserializer2", new Fields("geo") );
+//        builder.setBolt("event_filter", new FinalTSBolt(), CommonConfig.PARALLELISM()).shuffleGrouping("sliding_join");
+//        builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
+//        return builder.createTopology();
+//
+//    }
 
 
     public static void main(String[] args) throws Exception {
@@ -326,15 +274,15 @@ public class StormBenchmark {
         if(CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.AGGREGATION_USECASE)){
             topology = windowedAggregation(builder);
         } else if(CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.JOIN_USECASE)){
-            topology = windowedJoin(builder);
+            return;//topology = windowedJoin(builder);
         } else if (CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.DUMMY_CONSUMER)){
             topology = dummyConsumer(builder);
         }
 
         Config conf = new Config();
         if (runningMode.equals("cluster")) {
-            conf.setNumWorkers(CommonConfig.STORM_WORKERS());
-            conf.setNumAckers(CommonConfig.STORM_ACKERS());
+//            conf.setNumWorkers(CommonConfig.STORM_WORKERS());
+  //          conf.setNumAckers(CommonConfig.STORM_ACKERS());
             StormSubmitter.submitTopologyWithProgressBar(args[2], conf, topology);
         } else if (runningMode.equals("local")) {
 

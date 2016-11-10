@@ -17,11 +17,17 @@
 #include <unistd.h>
 
 const char *geoListAll[] = {
-            "AF", "AX", "AL", "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM","AW", "AC", "AU", "AT", "AZ", "BS", "BH", "BB",
-            "BD", "BY", "BE", "BZ", "BJ", "BM", "BT", "BW", "BO", "BA", "BV", "BR","IO", "BN", "BG", "BF", "BI", "KH", "CM", "CA", 
-            "CV", "KY", "CF", "TD", "CL", "CN", "CX", "CC", "CO", "KM", "CG", "CD","CK", "CR", "CI", "HR", "CU", "CY", "CZ", "CS",
-            "DK", "DJ", "DM", "DO", "TP", "EC", "EG", "SV", "GQ", "ER", "EE", "ET","EU", "FK", "FO", "FJ", "FI", "FR", "FX", "GF",
-            "PF", "TF", "MK", "GA", "GM", "GE", "DE", "GH", "GI", "GB", "GR", "GL","GD", "GP", "GU", "GT", "GG", "GN", "GW", "GY"};
+            "AF","AX" ,"AL","DZ","AS","AD","AO","AI","AQ","AG","AR","AM","AW","AC","AU","AT","AZ","BS","BH","BB",
+            "BD","BY","BE","BZ", "BJ","BM","BT","BW","BO","BA","BV","BR","IO","BN","BG","BF","BI","KH","CM","CA",
+            "CV","KY","CF","TD","CL","CN","CX","CC","CO","KM","CG","CD","CK","CR","CI","HR", "CU","CY","CZ","CS",
+            "DK","DJ","DM","DO","TP","EC","EG","SV","GQ","ER","EE","ET","EU","FK","FO","FJ","FI","FR","FX","GF",
+            "PF","TF","MK","GA","GM","GE","DE","GH","GI","GB","GR","GL","GD","GP","GU","GT","GG","GN","GW","GY",
+            "HT","HM","HN","HK","HU","IS","IN","ID","IR","IQ","IE","IL","IM","IT","JE","JM","JP","JO","KZ","KE",
+            "KI","KP","KR","KW","KG","LA","LV","LB","LI","LR","LY","LS","LT","LU","MO","MG","MW","MY","MV","ML",
+            "MT","MH","MQ","MR","MU","YT","MX","FM","MC","MD","MN","ME","MS","MA","MZ","MM","NA","NR","NP","NL"
+
+            
+            };
 char **reducedGeoList;
 unsigned long benchmarkCount;
 unsigned long geoIndex=0;
@@ -38,6 +44,7 @@ struct sockaddr_in server , client;
 typedef struct LogInfo {
     unsigned long long key;
     unsigned long value;
+    unsigned long throughput;
 }  logInfo;
 
 logInfo**  producerLog;
@@ -47,6 +54,10 @@ FILE *producerFile;
 
 char * producerFP;
 char * consumerFP;
+int nonSleepCount;
+int sustainability_limit;
+
+
 
 unsigned long long  get_current_time_with_ms (void)
 {
@@ -56,7 +67,17 @@ unsigned long long  get_current_time_with_ms (void)
     return  millisecondsSinceEpoch;
 }
 
-
+int msleep(unsigned long milisec)
+{
+       struct timespec req={0};
+       time_t sec=(int)(milisec/1000);
+       milisec=milisec-(sec*1000);
+       req.tv_sec=sec;
+       req.tv_nsec=milisec*1000000L;
+       while(nanosleep(&req,&req)==-1)
+           continue;
+       return 1;
+}
 
 void initializeGeoList( double d){
 	
@@ -84,14 +105,6 @@ char* generateJsonString(void){
 	return newJson;
 }
 
-void nsleep(long us)
-{
-        struct timespec wait;
-            //printf("Will sleep for is %ld\n", diff); //This will take extra ~70 microseconds        
-        wait.tv_sec = us / (1000 * 1000);
-        wait.tv_nsec = (us % (1000 * 1000)) * 1000;
-        nanosleep(&wait, NULL);
-}
 void *produce( void  )
 {
     int logIndex = 0;
@@ -99,16 +112,14 @@ void *produce( void  )
     producerLog[logIndex] = malloc(sizeof(logInfo));
     producerLog[logIndex]->value = 0;
     producerLog[logIndex]->key = get_current_time_with_ms()/1000;
-    producerFile = fopen(producerFP, "a+");
-    fprintf(producerFile, "%llu, %lu, %lu \n", producerLog[logIndex]->key, producerLog[logIndex]->value, 0);
-    fclose(producerFile);    
-
+    producerLog[logIndex]->throughput = 0;
 
     unsigned long long startTime =     producerLog[logIndex]->key;
-    for (unsigned long i = 0; i < benchmarkCount; i++){
-
+    for (unsigned long i = 0; i < benchmarkCount; ){
+	for(int k = 0; k < nonSleepCount && i < benchmarkCount; k++ ,i++){
          buffer[i] = generateJsonString();
          if(i % logInterval == 0){
+
             unsigned long long sec  = get_current_time_with_ms()/1000;
             if (producerLog[logIndex]->key != get_current_time_with_ms()/1000){
                 logIndex++;
@@ -116,23 +127,28 @@ void *produce( void  )
             producerLog[logIndex] = malloc(sizeof(logInfo));
             producerLog[logIndex]->value = i;
             producerLog[logIndex]->key = sec;
-            
+            producerLog[logIndex]->throughput = 0;
             unsigned long long interval =   producerLog[logIndex]->key - startTime;
             if(interval != 0){
-                 unsigned long currentThroughput = i / interval;
-                producerFile = fopen(producerFP, "a+"); 
-		fprintf(producerFile, "%llu, %lu, %lu \n", producerLog[logIndex]->key, producerLog[logIndex]->value, currentThroughput);
-		fclose(producerFile); 
+                 producerLog[logIndex]->throughput = i /  interval;
            }
-            printf("%lu tuples produced\n", i );
+            printf("Producer info - %llu, %lu, %lu \n", producerLog[logIndex]->key, producerLog[logIndex]->value, producerLog[logIndex]->throughput );
          }
          sem_post(&sem);
-	if(sleepTime){
-        	nsleep(sleepTime );
+        }
+
+
+	if(sleepTime != 0){
+        	msleep(sleepTime );
         }
     }
     logIndex++;
     producerLog[logIndex] = NULL;
+    for(int i = 0;producerLog[i]!=NULL ;i++){
+        fprintf(producerFile, "%llu, %lu, %lu \n", producerLog[i]->key, producerLog[i]->value, producerLog[i]->throughput);
+    }
+    fclose(producerFile); 
+
 }
 
 
@@ -149,20 +165,31 @@ void *consume( void  )
      
      // sending tuples
     int logIndex = 0;
+    int queue_size ;
     consumerLog = malloc(((benchmarkCount/logInterval) +3) * sizeof (*consumerLog));
     consumerLog[logIndex] = malloc(sizeof(logInfo));
     consumerLog[logIndex]->value = 0;
     consumerLog[logIndex]->key = get_current_time_with_ms()/1000;
-    
-    consumerFile = fopen(consumerFP, "a+");    
-    fprintf(consumerFile, "%llu, %lu, %lu \n", consumerLog[logIndex]->key, consumerLog[logIndex]->value, 0);
-    fclose(consumerFile);
+    consumerLog[logIndex]->throughput = 0;    
     unsigned long long startTime = consumerLog[logIndex]->key;
 
     for (unsigned long i = 0; i < benchmarkCount; i ++){
         sem_wait(&sem);
         write(client_sock , buffer[i] , strlen(buffer[i]));
        	if(i % logInterval == 0){
+
+            sem_getvalue(&sem, &queue_size);
+            if(queue_size > sustainability_limit){
+                printf("Cannot sustain the input data rate \n");
+                char hostname[1024];
+                gethostname(hostname, 1024);
+                sprintf(consumerFP, "%sERROR-%s-%d.csv",statsPath,hostname,port  );
+                consumerFile = fopen(consumerFP, "w");
+                fprintf(consumerFile, "System cannot sustain the data input rate");
+                fclose(consumerFile);
+                exit(0);
+            }
+
             unsigned long long sec  = get_current_time_with_ms()/1000;
             if (consumerLog[logIndex]->key != get_current_time_with_ms()/1000){
                 logIndex++;
@@ -170,21 +197,25 @@ void *consume( void  )
             consumerLog[logIndex] = malloc(sizeof(logInfo));
             consumerLog[logIndex]->value = i;
             consumerLog[logIndex]->key = sec;
-          
+            consumerLog[logIndex]->throughput = 0;
             unsigned long long interval = consumerLog[logIndex]->key - startTime;
             if(interval != 0){
-                unsigned long currentThroughput = i / interval;
-               	 consumerFile = fopen(consumerFP, "a+");
-		 fprintf(consumerFile, "%llu, %lu, %lu \n", consumerLog[logIndex]->key, consumerLog[logIndex]->value, currentThroughput);  
-           	 fclose(consumerFile);
+                 consumerLog[logIndex]->throughput = i / interval;
 	     }
-           printf("%lu tuples sent from buffer\n", i );
+           printf("Consumer log - %llu, %lu, %lu \n", consumerLog[logIndex]->key,consumerLog[logIndex]->value,consumerLog[logIndex]->throughput );
         }
      free(buffer[i]);
     }
     logIndex++;
     consumerLog[logIndex]=NULL;
 
+    for(int i = 0; consumerLog[i]!=NULL;i++){
+	     fprintf(consumerFile, "%llu, %lu, %lu \n", consumerLog[i]->key, consumerLog[i]->value, consumerLog[i]->throughput);  
+    }
+    fclose(consumerFile);
+ 
+    printf("All data read by system \n");
+    msleep(1000 * 1000);
 
      if(read_size == 0)
      {
@@ -245,8 +276,6 @@ void initLogFiles(void){
          printf("Error opening file!\n");
          exit(1);
     } 
-   fclose(producerFile);
-   fclose(consumerFile);
 }
 
 int main(int argc , char *argv[])
@@ -260,6 +289,8 @@ int main(int argc , char *argv[])
     sscanf(argv[3],"%lu",&logInterval);
     statsPath = argv[5];
     sscanf(argv[6],"%lu",&sleepTime);
+    sscanf(argv[7],"%d",&nonSleepCount);
+    sscanf(argv[8],"%d",&sustainability_limit);
     initializeGeoList( partitionSize);
     int seed = 123;
     srand(seed);
