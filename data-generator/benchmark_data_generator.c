@@ -56,7 +56,7 @@ char * producerFP;
 char * consumerFP;
 int nonSleepCount;
 int sustainability_limit;
-
+int backpressure_limit;
 
 
 unsigned long long  get_current_time_with_ms (void)
@@ -99,7 +99,7 @@ void initializeGeoList( double d){
 
 char* generateJsonString(void){
 	char * newJson = malloc(100);
-	sprintf(newJson,"{\"geo\":\"%s\",\"price\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoList[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
+	sprintf(newJson,"{\"geo\":\"%s\",\"price\":\"%d\",\"ts\":\"%llu\"", reducedGeoList[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
 	geoIndex++;
 	geoIndex = geoIndex % geoArraySize;	
 	return newJson;
@@ -172,22 +172,32 @@ void *consume( void  )
     consumerLog[logIndex]->key = get_current_time_with_ms()/1000;
     consumerLog[logIndex]->throughput = 0;    
     unsigned long long startTime = consumerLog[logIndex]->key;
-
+    char * tuple = malloc(100);
+    int backpressure_tolerance_iteration = backpressure_limit/sustainability_limit;
     for (unsigned long i = 0; i < benchmarkCount; i ++){
         sem_wait(&sem);
-        write(client_sock , buffer[i] , strlen(buffer[i]));
+        sprintf( tuple, "%s,\"qe\":\"%llu\"}\n ",buffer[i], get_current_time_with_ms()  );
+        write(client_sock , tuple , strlen( tuple ));
        	if(i % logInterval == 0){
 
             sem_getvalue(&sem, &queue_size);
             if(queue_size > sustainability_limit){
-                printf("Cannot sustain the input data rate \n");
-                char hostname[1024];
-                gethostname(hostname, 1024);
-                sprintf(consumerFP, "%sERROR-%s-%d.csv",statsPath,hostname,port  );
-                consumerFile = fopen(consumerFP, "w");
-                fprintf(consumerFile, "System cannot sustain the data input rate");
-                fclose(consumerFile);
-                exit(0);
+                if(backpressure_tolerance_iteration == 0 || queue_size > backpressure_limit ){
+                     printf("Cannot sustain the input data rate \n");
+                     char hostname[1024];
+                     gethostname(hostname, 1024);
+                     sprintf(consumerFP, "%sERROR-%s-%d.csv",statsPath,hostname,port  );
+                     consumerFile = fopen(consumerFP, "w");
+                     fprintf(consumerFile, "System cannot sustain the data input rate\n");
+                     fclose(consumerFile);
+                     exit(0);
+                }
+                else {
+                    backpressure_tolerance_iteration --;
+                    printf("The system can tolerate backpressure for %d additional iterations \n",backpressure_tolerance_iteration);
+                }
+            } else {
+                backpressure_tolerance_iteration = backpressure_limit / sustainability_limit;
             }
 
             unsigned long long sec  = get_current_time_with_ms()/1000;
@@ -291,6 +301,7 @@ int main(int argc , char *argv[])
     sscanf(argv[6],"%lu",&sleepTime);
     sscanf(argv[7],"%d",&nonSleepCount);
     sscanf(argv[8],"%d",&sustainability_limit);
+    sscanf(argv[9],"%d",&backpressure_limit);
     initializeGeoList( partitionSize);
     int seed = 123;
     srand(seed);
