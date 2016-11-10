@@ -72,7 +72,8 @@ object SparkBenchmark {
       val price: Double = obj.getDouble("price")
       val geo: String = obj.getString("geo")
       val ts: Long =  obj.getLong("ts")
-      ((geo), (ts, price))
+      val its: Long = obj.getLong("its")
+      ((geo), (ts, price,its))
     }).window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
 
     val windowedStream2 = joinSource2.map(s => {
@@ -80,13 +81,15 @@ object SparkBenchmark {
       val price: Double = obj.getDouble("price")
       val geo: String = obj.getString("geo")
       val ts: Long =  obj.getLong("ts")
-      ((geo), (ts, price))
+      val its: Long = obj.getLong("its")
+      ((geo), (ts, price,its))
     }).window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
 
 
     val joinedStream = windowedStream1.join(windowedStream2).map(t => (
                                                                       t._1,
                                                                       System.currentTimeMillis() - Math.max(t._2._1._1, t._2._2._1),
+                                                                      if(t._2._1._1 >= t._2._2._1) t._2._1._3 else t._2._2._3 ,
                                                                       Math.abs(t._2._1._2 - t._2._2._2),
                                                                       Math.max(t._2._1._1, t._2._2._1)))
 
@@ -108,25 +111,28 @@ object SparkBenchmark {
       val price: Double = obj.getDouble("price")
       val geo: String = obj.getString("geo")
       val ts: Long =  obj.getLong("ts") ;
-
-      ((geo), (ts, price, 1, 1))
+      val its: Long = obj.getLong("its")
+      ((geo), (ts, price, 1, 1, its))
     })
 
-    val windowedStream = keyedStream.window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
+    val windowedStream = keyedStream.window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()),
+      Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
       .reduceByKey((t1, t2) => {
         val avgPrice = (t1._2 * t1._3 + t2._2 * t2._3 ) / (t1._3 + t2._3);
         val avgCount = t1._3 + t2._3;
         val ts: Long = Math.max(t1._1, t2._1)
+        val its: Long = if(t1._1 >= t2._1 ) t1._5 else t2._5
         val elementCount = t1._4 + t2._4
-        (ts, avgPrice, avgCount, elementCount)
+        (ts, avgPrice, avgCount, elementCount, its)
       })
 
-    val mappedStream = windowedStream.map(tuple => new Tuple5[String, Long, Double, Int, Long](
+    val mappedStream = windowedStream.map(tuple => new Tuple6[String, Long, Double, Int, Long, Long](
                                                           tuple._1,
                                                           System.currentTimeMillis() - tuple._2._1,
                                                           tuple._2._2,
                                                           tuple._2._4,
-                                                          tuple._2._1))
+                                                          tuple._2._1,
+                                                          tuple._2._5))
 
     mappedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
     // resultStream.print();

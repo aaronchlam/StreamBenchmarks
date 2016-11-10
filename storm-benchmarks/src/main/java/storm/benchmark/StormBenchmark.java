@@ -57,46 +57,37 @@ public class StormBenchmark {
             String geo = obj.getString("geo");
             Double price = obj.getDouble("price");
             Long ts = obj.getLong("ts");
+            Long its = obj.getLong("its");
             _collector.emit(tuple, new Values(
                     geo,
                     ts,
-                    price
+                    price,
+                    its
             ));
             _collector.ack(tuple);
         }
 
         @Override
         public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields("geo", "ts", "price"));
+            declarer.declare(new Fields("geo", "ts", "price", "its"));
         }
     }
 
-    public static class FilterBolt extends BaseRichBolt {
-        OutputCollector _collector;
-
-        @Override
-        public void prepare(Map conf, TopologyContext context, OutputCollector collector) {
-            _collector = collector;
-        }
-
-        @Override
-        public void execute(Tuple tuple) {
-            _collector.ack(tuple);
-        }
-
-        @Override
-        public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields("geo", "ts", "price"));
+    public static class Pair<T, I> {
+        public T ts; //first member of pair
+        public I its; //second member of pair
+        public Pair(T ts,I its){
+            this.ts = ts;
+            this.its = its;
         }
     }
-
 
     public static class SlidingWindowAvgBolt extends BaseWindowedBolt {
 
         private HashMap<String,Double> sumState = new HashMap<>();
         private OutputCollector collector;
         private HashMap<String,Integer> sizeState = new HashMap<>();
-        private HashMap<String,Long> tsMap = new HashMap<>();
+        private HashMap<String,Pair<Long,Long>> tsMap = new HashMap<>();
 
         @Override
         public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
@@ -123,7 +114,14 @@ public class StormBenchmark {
             for (Tuple tuple : newTuples) {
                 String key = tuple.getString(0);
                 sumState.put(key, sumState.getOrDefault(key,0.0 )  +  tuple.getDouble(2)    ) ;
-                tsMap.put(key, Math.max(tsMap.getOrDefault(key,0L), tuple.getLong(1)));
+                if (tsMap.containsKey(key)){
+                    Pair<Long, Long> p = tsMap.get(key);
+                    if (p.ts < tuple.getLong(1)) p.its = tuple.getLong(3);
+                    p.ts = Math.max(p.ts,tuple.getLong(1));
+                    tsMap.put(key,p);
+                } else {
+                    tsMap.put(key, new Pair<>(tuple.getLong(1), tuple.getLong(3)));
+                }
                 sizeState.put(key, sizeState.getOrDefault(key, 0  )  +  1    ) ;
             }
             for (Tuple tuple : expiredTuples) {
@@ -135,12 +133,12 @@ public class StormBenchmark {
             for (Map.Entry<String, Double> entry : sumState.entrySet()) {
                 String geo = entry.getKey();
                 Double sum = entry.getValue();
-                collector.emit(new Values(geo, tsMap.get(geo), sum / sizeState.get(geo), sizeState.get(geo)));
+                collector.emit(new Values(geo, tsMap.get(geo).ts, sum / sizeState.get(geo), sizeState.get(geo) ,tsMap.get(geo).its));
             }
         }
         @Override
         public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields("geo","ts","avg_price", "window_size"));
+            declarer.declare(new Fields("geo","ts","avg_price", "window_size", "its"));
         }
 
     }
@@ -158,13 +156,13 @@ public class StormBenchmark {
         @Override
         public void execute(Tuple tuple) {
             Long ts = System.currentTimeMillis() -  tuple.getLong(1);
-            _collector.emit(tuple, new Values(tuple.getString(0), ts , tuple.getLong(1), tuple.getDouble(2), tuple.getInteger(3) ));
+            _collector.emit(tuple, new Values(tuple.getString(0), ts , tuple.getLong(1), tuple.getDouble(2), tuple.getInteger(3), tuple.getLong(4) ));
             _collector.ack(tuple);
         }
 
         @Override
         public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields( "geo","ts","ts_start","avg_price", "window_size"));
+            declarer.declare(new Fields( "geo","ts","ts_start","avg_price", "window_size", "its"));
         }
     }
 
@@ -216,21 +214,6 @@ public class StormBenchmark {
 
     }
 
-    private static StormTopology dummyConsumer(TopologyBuilder builder) {
-        for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            for(Integer port: CommonConfig.DATASOURCE_PORTS()){
-                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),CommonConfig.PARALLELISM());
-            }
-        }
-        BoltDeclarer bolt= builder.setBolt("event_filter", new FilterBolt(), CommonConfig.PARALLELISM());
-        for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
-                bolt = bolt.shuffleGrouping("source"+host + "" + port);
-            }
-        }
-        builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
-        return builder.createTopology();
-    }
 
 
 
@@ -275,8 +258,6 @@ public class StormBenchmark {
             topology = windowedAggregation(builder);
         } else if(CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.JOIN_USECASE)){
             return;//topology = windowedJoin(builder);
-        } else if (CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.DUMMY_CONSUMER)){
-            topology = dummyConsumer(builder);
         }
 
         Config conf = new Config();
