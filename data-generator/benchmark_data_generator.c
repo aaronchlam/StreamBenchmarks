@@ -176,7 +176,7 @@ void *consume( void  )
     int backpressure_tolerance_iteration = backpressure_limit/sustainability_limit;
     for (unsigned long i = 0; i < benchmarkCount; i ++){
         sem_wait(&sem);
-        sprintf( tuple, "%s,\"qe\":\"%llu\"}\n ",buffer[i], get_current_time_with_ms()  );
+        sprintf( tuple, "%s,\"its\":\"%llu\"}\n ",buffer[i], get_current_time_with_ms()  );
         write(client_sock , tuple , strlen( tuple ));
        	if(i % logInterval == 0){
 
