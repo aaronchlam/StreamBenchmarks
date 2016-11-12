@@ -207,8 +207,8 @@ public class StormBenchmark {
             }
         }
         builder.setBolt("sliding_avg", new SlidingWindowAvgBolt()
-                .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS),
-                        new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS))
+                        .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS),
+                                new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS))
                 ,CommonConfig.PARALLELISM()).fieldsGrouping("event_deserializer", new Fields("geo") );
         builder.setBolt("event_filter", new FinalTSBolt(), CommonConfig.PARALLELISM()).shuffleGrouping("sliding_avg");
         builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
@@ -282,7 +282,7 @@ public class StormBenchmark {
         Config conf = new Config();
         if (runningMode.equals("cluster")) {
 //            conf.setNumWorkers(CommonConfig.STORM_WORKERS());
-  //          conf.setNumAckers(CommonConfig.STORM_ACKERS());
+            //          conf.setNumAckers(CommonConfig.STORM_ACKERS());
             StormSubmitter.submitTopologyWithProgressBar(args[2], conf, topology);
         } else if (runningMode.equals("local")) {
 
