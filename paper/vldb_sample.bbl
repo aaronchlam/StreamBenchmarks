@@ -1,0 +1,21 @@
+\begin{thebibliography}{1}
+
+\bibitem{carbone2015apache}
+P.~Carbone, S.~Ewen, S.~Haridi, A.~Katsifodimos, V.~Markl, and K.~Tzoumas.
+\newblock Apache flink: Stream and batch processing in a single engine.
+\newblock {\em IEEE Data Engineering Bulletin}, 2015.
+
+\bibitem{toshniwal2014storm}
+A.~Toshniwal, S.~Taneja, A.~Shukla, K.~Ramasamy, J.~M. Patel, S.~Kulkarni,
+  J.~Jackson, K.~Gade, M.~Fu, J.~Donham, et~al.
+\newblock Storm@ twitter.
+\newblock In {\em Proceedings of the 2014 ACM SIGMOD international conference
+  on Management of data}, pages 147--156. ACM, 2014.
+
+\bibitem{zaharia2012discretized}
+M.~Zaharia, T.~Das, H.~Li, S.~Shenker, and I.~Stoica.
+\newblock Discretized streams: an efficient and fault-tolerant model for stream
+  processing on large clusters.
+\newblock In {\em Presented as part of the}, 2012.
+
+\end{thebibliography}
