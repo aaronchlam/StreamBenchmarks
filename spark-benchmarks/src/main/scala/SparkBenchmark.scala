@@ -1,10 +1,3 @@
-/*
- * Copyright 2015, Yahoo Inc.
- * Licensed under the terms of the Apache License 2.0. Please see LICENSE file in the project root for terms.
- */
-
-// scalastyle:off println
-
 package spark.benchmark
 
 import benchmark.common.CommonConfig
@@ -85,10 +78,10 @@ object SparkBenchmark {
 
 
     val joinedStream = windowedStream1.join(windowedStream2).map(t => (
-      t._1,
-      System.currentTimeMillis() - Math.max(t._2._1._1, t._2._2._1),
-      Math.abs(t._2._1._2 - t._2._2._2),
-      Math.max(t._2._1._1, t._2._2._1)))
+                                                                      t._1,
+                                                                      System.currentTimeMillis() - Math.max(t._2._1._1, t._2._2._1),
+                                                                      Math.abs(t._2._1._2 - t._2._2._2),
+                                                                      Math.max(t._2._1._1, t._2._2._1)))
 
     joinedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
 
@@ -122,11 +115,11 @@ object SparkBenchmark {
       })
 
     val mappedStream = windowedStream.map(tuple => new Tuple5[String, Long, Double, Int, Long](
-      tuple._1,
-      System.currentTimeMillis() - tuple._2._1,
-      tuple._2._2,
-      tuple._2._4,
-      tuple._2._1))
+                                                          tuple._1,
+                                                          System.currentTimeMillis() - tuple._2._1,
+                                                          tuple._2._2,
+                                                          tuple._2._4,
+                                                          tuple._2._1))
 
     mappedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
     // resultStream.print();

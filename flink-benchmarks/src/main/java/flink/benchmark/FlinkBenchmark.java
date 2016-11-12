@@ -1,3 +1,7 @@
+/**
+ * Copyright 2015, Yahoo Inc.
+ * Licensed under the terms of the Apache License 2.0. Please see LICENSE file in the project root for terms.
+ */
 package flink.benchmark;
 
 import benchmark.common.CommonConfig;
@@ -8,6 +12,7 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.api.java.tuple.Tuple5;
+import org.apache.flink.api.java.tuple.Tuple6;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -169,15 +174,15 @@ public class FlinkBenchmark {
         }
 
         DataStream<Tuple5<String, Long, Double, Integer,Integer>> messageStream = socketSource.map(new MapFunction<String, Tuple5<String, Long, Double, Integer,Integer>>() {
-            @Override
-            public Tuple5<String, Long, Double, Integer,Integer> map(String s) throws Exception {
-                JSONObject obj = new JSONObject(s);
-                String geo = obj.getString("geo");
-                Double price = obj.getDouble("price");
-                Long ts =  obj.getLong("ts");
-                return new Tuple5<String, Long, Double, Integer,Integer>(geo, ts , price, 1 ,1);
-            }
-        });
+                    @Override
+                    public Tuple5<String, Long, Double, Integer,Integer> map(String s) throws Exception {
+                        JSONObject obj = new JSONObject(s);
+                        String geo = obj.getString("geo");
+                        Double price = obj.getDouble("price");
+                        Long ts =  obj.getLong("ts");
+                        return new Tuple5<String, Long, Double, Integer,Integer>(geo, ts , price, 1 ,1);
+                    }
+                });
 
         DataStream<Tuple5<String, Long, Double, Integer,Integer>> aggregatedStream = messageStream.keyBy(0)
                 .timeWindow(Time.milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Time.milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE())).
@@ -209,4 +214,5 @@ public class FlinkBenchmark {
 
     }
 }
+
 
