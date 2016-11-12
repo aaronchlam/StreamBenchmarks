@@ -58,7 +58,6 @@ int nonSleepCount;
 int sustainability_limit;
 int backpressure_limit;
 
-
 unsigned long long  get_current_time_with_ms (void)
 {
 	struct timeval tv;
@@ -80,7 +79,6 @@ int msleep(unsigned long milisec)
 }
 
 void initializeGeoList( double d){
-	
 	int allSize = sizeof(geoListAll)/sizeof(geoListAll[0]);
 	geoArraySize = allSize * fabs(d);
 	reducedGeoList = (char**)malloc(sizeof(char*) * geoArraySize);
@@ -99,7 +97,7 @@ void initializeGeoList( double d){
 
 char* generateJsonString(void){
 	char * newJson = malloc(100);
-	sprintf(newJson,"{\"geo\":\"%s\",\"price\":\"%d\",\"ts\":\"%llu\"", reducedGeoList[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
+	sprintf(newJson,"{\"geo\":\"%s\",\"price\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoList[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
 	geoIndex++;
 	geoIndex = geoIndex % geoArraySize;	
 	return newJson;
@@ -115,10 +113,33 @@ void *produce( void  )
     producerLog[logIndex]->throughput = 0;
 
     unsigned long long startTime =     producerLog[logIndex]->key;
+    
+    int queue_size ;
+    int backpressure_tolerance_iteration = backpressure_limit/sustainability_limit;
     for (unsigned long i = 0; i < benchmarkCount; ){
 	for(int k = 0; k < nonSleepCount && i < benchmarkCount; k++ ,i++){
          buffer[i] = generateJsonString();
          if(i % logInterval == 0){
+              sem_getvalue(&sem, &queue_size);
+              if(queue_size > sustainability_limit){
+                if(backpressure_tolerance_iteration == 0 || queue_size > backpressure_limit ){
+                     printf("Cannot sustain the input data rate \n");
+                     char hostname[1024];
+                     gethostname(hostname, 1024);
+                     sprintf(consumerFP, "%sERROR-%s-%d.csv",statsPath,hostname,port  );
+                     consumerFile = fopen(consumerFP, "w");
+                     fprintf(consumerFile, "System cannot sustain the data input rate\n");
+                     fclose(consumerFile);
+                     exit(0);
+                }
+                else {
+                    backpressure_tolerance_iteration --;
+                    printf("The system can tolerate backpressure for %d additional iterations \n",backpressure_tolerance_iteration);
+                }
+            } else {
+                backpressure_tolerance_iteration = backpressure_limit / sustainability_limit;
+            }
+
 
             unsigned long long sec  = get_current_time_with_ms()/1000;
             if (producerLog[logIndex]->key != get_current_time_with_ms()/1000){
@@ -165,41 +186,19 @@ void *consume( void  )
      
      // sending tuples
     int logIndex = 0;
-    int queue_size ;
+
     consumerLog = malloc(((benchmarkCount/logInterval) +3) * sizeof (*consumerLog));
     consumerLog[logIndex] = malloc(sizeof(logInfo));
     consumerLog[logIndex]->value = 0;
     consumerLog[logIndex]->key = get_current_time_with_ms()/1000;
     consumerLog[logIndex]->throughput = 0;    
     unsigned long long startTime = consumerLog[logIndex]->key;
-    char * tuple = malloc(100);
-    int backpressure_tolerance_iteration = backpressure_limit/sustainability_limit;
+
     for (unsigned long i = 0; i < benchmarkCount; i ++){
         sem_wait(&sem);
-        sprintf( tuple, "%s,\"its\":\"%llu\"}\n ",buffer[i], get_current_time_with_ms()  );
-        write(client_sock , tuple , strlen( tuple ));
+        write(client_sock , buffer[i] , strlen( buffer[i] ));
        	if(i % logInterval == 0){
-
-            sem_getvalue(&sem, &queue_size);
-            if(queue_size > sustainability_limit){
-                if(backpressure_tolerance_iteration == 0 || queue_size > backpressure_limit ){
-                     printf("Cannot sustain the input data rate \n");
-                     char hostname[1024];
-                     gethostname(hostname, 1024);
-                     sprintf(consumerFP, "%sERROR-%s-%d.csv",statsPath,hostname,port  );
-                     consumerFile = fopen(consumerFP, "w");
-                     fprintf(consumerFile, "System cannot sustain the data input rate\n");
-                     fclose(consumerFile);
-                     exit(0);
-                }
-                else {
-                    backpressure_tolerance_iteration --;
-                    printf("The system can tolerate backpressure for %d additional iterations \n",backpressure_tolerance_iteration);
-                }
-            } else {
-                backpressure_tolerance_iteration = backpressure_limit / sustainability_limit;
-            }
-
+                      
             unsigned long long sec  = get_current_time_with_ms()/1000;
             if (consumerLog[logIndex]->key != get_current_time_with_ms()/1000){
                 logIndex++;
