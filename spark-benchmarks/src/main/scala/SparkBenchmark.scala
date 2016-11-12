@@ -87,11 +87,18 @@ object SparkBenchmark {
 
 
     val joinedStream = windowedStream1.join(windowedStream2).map(t => (
+<<<<<<< HEAD
                                                                       t._1,
                                                                       System.currentTimeMillis() - Math.max(t._2._1._1, t._2._2._1),
                                                                       if(t._2._1._1 >= t._2._2._1) t._2._1._3 else t._2._2._3 ,
                                                                       Math.abs(t._2._1._2 - t._2._2._2),
                                                                       Math.max(t._2._1._1, t._2._2._1)))
+=======
+      t._1,
+      System.currentTimeMillis() - Math.max(t._2._1._1, t._2._2._1),
+      Math.abs(t._2._1._2 - t._2._2._2),
+      Math.max(t._2._1._1, t._2._2._1)))
+>>>>>>> origin/master
 
     joinedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
 
@@ -126,6 +133,7 @@ object SparkBenchmark {
         (ts, avgPrice, avgCount, elementCount, its)
       })
 
+<<<<<<< HEAD
     val mappedStream = windowedStream.map(tuple => new Tuple6[String, Long, Double, Int, Long, Long](
                                                           tuple._1,
                                                           System.currentTimeMillis() - tuple._2._1,
@@ -133,6 +141,14 @@ object SparkBenchmark {
                                                           tuple._2._4,
                                                           tuple._2._1,
                                                           tuple._2._5))
+=======
+    val mappedStream = windowedStream.map(tuple => new Tuple5[String, Long, Double, Int, Long](
+      tuple._1,
+      System.currentTimeMillis() - tuple._2._1,
+      tuple._2._2,
+      tuple._2._4,
+      tuple._2._1))
+>>>>>>> origin/master
 
     mappedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
     // resultStream.print();
