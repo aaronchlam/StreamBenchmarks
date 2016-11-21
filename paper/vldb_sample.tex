@@ -11,6 +11,9 @@
 \usepackage{amsmath}
 \usepackage{url}
 \usepackage{subcaption}
+\usepackage{amsmath}
+\usepackage[linesnumbered,ruled]{algorithm2e}
+\SetKwRepeat{Do}{do}{while}%
 
 
 \begin{document}
@@ -317,24 +320,67 @@ The Key Performance Indicators ( KPIs) for this benchmark are latency and throug
 
 
 \subsubsection{Throughput}
-\textit{Definition.  Let $c_{i} \in C$ be a configuration for a Data Engine, $d_{i} \in D$,  $c_{i}^{s}$ be the data generation speed configuration which can be sustained by SUT. If  $\exists c_{i} \in C$ such that $c_{1} = c_{2}... = c_{i}$ and  $T = \sum_{i}c_{i}^{s}$ is maximum, $\forall c_{i} \in C, \forall i \in \{1,2,3 ... |C|\}$, then $T$ is a maximum sustainable throughput of SUT.}
+\textit{Definition.  Let $c_{i} \in C$ be a configuration for a Data Engine, $d_{i} \in D$,  $c_{i}^{sp}$ be the data generation speed configuration which can be sustained by SUT. If  $\exists c_{i} \in C$ such that $c_{1} = c_{2}... = c_{i}$ and  $T = \sum_{i}c_{i}^{s}$ is maximum, $\forall c_{i} \in C, \forall i \in \{1,2,3 ... |C|\}$, then $T$ is a maximum sustainable throughput of SUT.}
 
-Throughput of a system is calculated as summing the throughout of each Data Engine  because the SUT is expected to pull the data from all Data Queue subcomponent of Data Engine approximately with same rate. We restricted the configuration of all Data Engines to be the same, to ease calculating the maximum sustainable throughput. It is crucial to node that the maximum sustainable throughput is not the same as maximum throughput of Data Engine but the one for SUT. 
+Throughput of a system is calculated as summing the throughout of each Data Engine  because the SUT is expected to pull the data from all Data Queue subcomponent of Data Engine approximately with same rate. We restricted the configuration of all Data Engines to be the same, to ease calculating the maximum sustainable throughput. It is crucial to note that the maximum sustainable throughput is not the same as maximum throughput of Data Engine but the one for SUT. 
 
-It is crucial for experiments to adjust the throughput of producer to be approximately the same as the one of consumer. The semantics behind adjustability of consumer and producer throughputs must be clear and applicable to stream data processing system designs as well. Here producer is data generator and consumer is stream data processing system. 
+To examine the system's sustainability with a given throughput, we divide the queue used in Data Queue subcomponent into three parts: $c^{a}$ , $c^{b}$ and $c^{n}$. The Figure \ref{fig_queue}, shows the example partitioning of queue. If the size of the queue is less than or equal to $c^{a}$ then this is acceptable and means, the SUT can sustain the given throughput. If the queue size is less than or equal to $c^{b}$ on the other hand, the SUT cannot sustain the given data rate but we can tolerate it for some time, in case the increase in queue size is an outcome of back-pressure. However, if the queue size is bigger than the $c^{b}$ then the SUT cannot sustain the given throughput and there is no need to do benchmarks with particular data rate.
 
-To overcome this problem, we propose simple mechanism to adjust upper limit of producer throughput  to consumer throughput. Figure \ref{fig_queue} shows the basic intuition behind this. There are three borderlines to be taken into consideration. The green portion of queue $S_{a}$,  is acceptable sustainability. That is, if consumer can consume elements with no more than $S_{a}$ elements left in queue, then this is acceptable and consumer and producer throughputs are said to be adjustable. However, the engines we test have back-pressure mechanism that can limit consumer pulls from queue. So, if consumer is slower than producer, we let $S_{b}$ elements to be buffered additionally. This behaviour, on the other hand, is allowed not \textit{limited time}(the definition of \textit{limited time} is below). If after \textit{limited time} the queue size is not within boundaries of $S_{a}$ then the application quits, indicating the consumer cannot sustain current data generation rate. Finally, if queue size increases within boundaries of $S_{a} + S_{b}$ then there is no need to wait for back-pressure and application quits immediately. 
+The semantics behind  examination of SUT's sustainability with a given throughput must be clear. Moreover, it should support the system specific behaviours like back-pressure. Algorithm \ref{alg_sustainable} show an algorithm to check if the  SUT can sustain  the given throughput of a single Data Engine. It gets the configuration $c$ of Data Engine as an input. After firing the Data Engine with configuration $c$, in line $3$, it is put to $idle$ position, meaning no data is generated until the SUT makes its first data pull request from Data Queue subcomponent. $c^{input}$ is the input count that must be generated in particular Data Engine.
+ In lines $10-11$ the events are generated with speed $c^{sp}$ in Data Generator subcomponent of Data Engine component and put into the queue of Data Queue subcomponent. We check the queue size periodically, once per $c^{a}$ element and not for each iteration. The first reason is that the data pull rate of stream data processing engine is not steady and therefore checking the queue size with little delays makes more sense. The second reason is that, $c^{a}$ can be thought of the $confidence limit$ as shown in Figure \ref{fig_queue}. While checking the queue size there are three possibilities. The first is (lines $13-15$), the size is bigger than $c^{b}$, the back-pressure limit. In this case, the Data Engine is stopped and the $false$ is returned meaning the SUT is not sustainable with given throughput. The second is (lines $16-18$), queue size is less than $c^{a}$, the acceptable queue size. In this case, we set back-pressure counter to zero, in case there was one and continue generating data. The third is (lines $19-23$), the size   of queue is within boundaries of $c^{a}$ and $c^{b}$. In this case, we can tolerate the SUT for at most $\frac{c^{b}}{c^{a}}$ times. If the system can pull the data in queue and set the size of queue within \textit{confidence} boundaries ($c^{a}$) in a given period, then it continues, else, the application returns $false$ meaning, the SUT cannot sustain the given throughput. 
 
-To evaluate the \textit{tolerance limit} in queue for possible back-pressure, we use rounds. 
 
-\begin{equation}
-  \begin{gathered}
-round_{length} \gets S_{a} \\
-round_{max} \gets \frac{S_{b}}{S_{a}}
- \end{gathered}\label{eq_3}
-\end{equation}
 
-$round_{length}$ is the check period in queue. That is, after every $round_{length}$ tuple put into the queue, the check has been done of queue size. If queue size is between $S_{a}$ and $S_{b}$ then, the application is not quit immediately, but instead checked $round_{max}$ times. The calculation of these variables are shown in Equation \ref{eq_3}.
+
+\begin{algorithm}
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+
+    \underline{function isSustainable} $(c)$\;
+    \Input{ $c$ is configuration of Data Engine}
+    \Output{return $true$ if is sustainable, $false$ otherwise}
+    Fire Data Engines with configuration $c$. \\
+    $c^{st} \gets idle$  \tcp*{wait for SUT to pull data}
+  \While{There is no pull request from SUT}{
+    wait \\ 
+   }    
+       $c^{st} \gets active$ \tcp*{start generating data}
+       $bp\_index \gets 0$ \tcp*{initialize back-pressure index}
+       \For{$i \gets 0; i < c^{input}; i++$}{
+       Generate $e_{i} \in E$ with speed $c^{sp}$\\
+       queue.put($e_{i}$) \tcp*{put  generated event to queue}
+        \tcc{check the queue once per $c^{a}$ elements}
+        \uIf{i \% $c^{a} == 0$}   { 
+               \uIf{ $queue.size > c^{b}$  }   { 
+              		Stop Data Engine \\
+		         return $false$
+               }
+               \uElseIf{  $queue.size < c^{a}$ }{
+               $bp\_index \gets 0$ \tcp*{ no back-pressure} 
+               $continue$ \tcp*{SUT can sustain so far} 
+               }
+               \uElse{ 
+                \tcc{ Tolerate for back-pressure}
+                  $bp\_index \gets bp\_index +1$ \\
+                     \uIf{$bp\_index == \frac{c^{b}}{c^{a}}$}{
+                       \tcc{ This is not back-pressure}
+                        Stop Data Engine \\
+		         return $false$  
+                     }
+               }
+        }
+        
+       }
+
+    \caption{Throughput sustainability test of single data engine}
+    \label{alg_sustainable}
+\end{algorithm}
+
+
+\textit{Definition.  Let $c_{i} \in C$ be a configuration for a Data Engine, $c_{i}^{dr}$ be a data generation rate of particular Data Generator, $d_{i} \in D$ and $n$ be the number of Data Engines being $n = |D|$.  The SUT is sustainable with given throughput $n * c_{dr}$,  $iff$ $isSustainable(c_{i})  == true$ $\forall$ $i \in \{1,2,3,...n\}$}
+
+The above definition states that the SUT is sustainable with a given data generation rate iff, it can sustain all Data Engines at the same time. If one of the Data Engines cannot be sustained, then SUT is said is not sustainable with a given data generation rate. 
+
 
 \subsubsection{Latency}
 \label{sec_latency}
