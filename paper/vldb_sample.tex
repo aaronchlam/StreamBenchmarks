@@ -199,19 +199,24 @@ Spark Streaming has a built-in support for windowed calculations. Processing tim
 
 
 
-\subsection{Apache Flink}Apache Flink which was started off as an academic open source project (Stratosphere \cite{alexandrov2014stratosphere}) in Technical University of  Berlin.
+\subsection{Apache Flink}
+Apache Flink which was started off as an academic open source project (Stratosphere \cite{alexandrov2014stratosphere}) in Technical University of  Berlin.
 
 \textbf{Computational model}
-Similar to Storm, The computational model of Flink could be described as a graph consists of transformations as vertices and stream tuples as edges. 
+Distributed dataflow engine is standing in the core of Flink. It is responsible for executing the dataflow programs. Like Storm, A Flink runtime program is a DAG of stateful operators connected with data streams. Flink's runtime engine supports unified processing of batch (bounded) and stream (unbounded) considering former as being the special case of the latter.
+
+Flink provides its own memory management to avoid long running JVM's garbage collector stalls by serialising data into memory segments. 
+The data exchange in distributed environment is done via buffers. So, producer takes a buffer from the pool, fill it up with data, and the consumer receives data and frees the buffer informing the memory manager. There are different mechanisms such as sending when buffer is full or sending when timeout is reached to link buffers between consumer and producer or sending locally or remotely. Flink provides wide range of high level and user friendly APIs to manage the state. The incremental state update, managing the memory or checkpointing with big states is done automatically, transparent to user. 
 
 \textbf{Windowing}
+Flink owns strong feature set for building and evaluating windows on data streams. With wide range of pre-defined windowing operators, it supports user defined windows with custom logic. The engine provides processing time, event time and ingestion notion of time.  In processing time, like Spark,  windows are defined with respect to the wall clock of the machine that is responsible for building and processing  a window. In event time on the other hand, the notion of time is  determined when the event are created. Like in Storm, the timestamps must be attached to each event record as a separate field. In ingestion time, the system still processes with event time semantics but on the timestamps which were assigned when tuples arrive the system. Flink has a support for out-of-ordered streams which gained popularity after Googles MilWheel and Dataflow papers \cite{akidau2013millwheel,akidau2015dataflow}
 
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.35\textwidth]{streambatch}
-\label{fig_micro_batch}
 \caption{Conceptual view of micro-batching}
+\label{fig_micro_batch}
 \end{figure}
 
 
@@ -227,69 +232,96 @@ There are several challenges to be taken into consideration while designing a be
 The third challenge is abstain from biased test results and keep the evaluation semantics clear.  One example for this is, throughput measurement. In the previous SDPS benchmarks, the throughput of a SUT is measured by either taking quantiles over test time, or showing max, min and average assessments. From user's perspective on the other hand, the system's throughput is the one with upper bound that it can sustain the data processing. When conducting the experiments with stream data processing engines, back pressure is another factor affecting the throughput, that should be taken into consideration.  Another example for this challenge is latency measurement. In the previous SDPS benchmarks, the latency of an operator is measured by taking difference of tuple's ingestion timestamp to system and output timestamp from system. However, from user's perspective, the start timestamp of a tuple is once it is created and latency of particular tuple should be calculated by taking into consideration its event timestamp. We solve the first issue by measuring the SUT's max throughput that it can sustain under back pressure with a given amount of input. We developed the mechanism for handing the back pressure.  For the second issue, we measure the latency of a tuple by differentiating the time when output is done and its event timestamp.
 
 
-\textbf{ \textit{ Latency of stateful operator}}. The fourth challenge is measuring the latency of stateful operator. Up to this point, the related works in literature either concentrated on stateless operators or evaluated the latency of stateful operators by checkpointing to external systems like lightweight distributed databases. As we discussed above, this approach can be a bottleneck in some cases. In this paper, we provide a solution for this problem without any external system. 
+\textbf{ \textit{ Latency of stateful operator?}} The fourth challenge is measuring the latency of stateful operator. Up to this point, the related works in literature either concentrated on stateless operators or evaluated the latency of stateful operators by checkpointing to external systems like lightweight distributed databases. As we discussed above, this approach can be a bottleneck in some cases. In this paper, we provide a solution for this problem without any external system. 
 
 
-\begin{figure}
-    \caption{Different system designs to link data generator and SUT.}
+\begin{figure*}
     \centering
-    \begin{subfigure}[b]{0.4\textwidth}
+    \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{no_queue}
         \caption{Without message queue}
         \label{fig_no_queue}
     \end{subfigure}
     ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
       %(or a blank line to force the subfigure onto a new line)
-    \begin{subfigure}[b]{0.4\textwidth}
+    \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{yes_queue}
         \caption{With message queue}
         \label{fig_yes_queue}
     \end{subfigure}
     ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
     %(or a blank line to force the subfigure onto a new line)
-    \begin{subfigure}[b]{0.4\textwidth}
+    \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{node_queue}
         \caption{Partial message queue}
         \label{fig_partial_queue}
     \end{subfigure}
     \label{fig_queue_link}
-\end{figure}
+        \caption{Different system designs to link data generator and SUT.}
+\end{figure*}
 
 
 
 \section{Benchmark system design}
-We keep overall design of benchmark simple and akin to the systems under to be tested.  
-The stream data processing system connects to predefined number of socket input data sources. Each input data source has its own data generator and queue where tuples are put after generation. When the stream data processing system pulls  data from socket server, serving thread sends the data from queue rather than  directly from data generator. 
+We keep overall design of benchmark simple. Figure \ref{fig_design} shows the overall intuition behind the benchmark system. There are two main components of a system:
+\begin{itemize}  
+\item SUT
+\item Data Engine 
+\begin{itemize}  
+      \item Data Generator
+       \item Data Queue
+\end{itemize}
 
-Figure \ref{fig_design} shows the overall intuition of the benchmark system.Firstly, the data generator, at the left side of the figure, spawns the tuples and appends the current timestamp as a separate field. Secondly, the generated tuples wait in queue until the stream data processing system pulls them. Queue is based on FIFO semantics. Thirdly, the stream data processing system combines the tuples from different sockets by uniting streams. Depending on the nature of operator to be tested, there can be several unions of streams. For example, windowed aggregation is single input stream operator but join operator accepts two streams as an input. Fourthly, the operator to be tested computes the data in windows. In our case, we test windowed aggregation and windowed join operators. Finally, the next operator calculates the latency of a tuple by subtracting event timestamp from current timestamp.
+\end{itemize}
 
-Proper handling tuples' timestamp fields while joining or aggregating is crucial. In this work, \textit{merging} of tuples' timestamp fields is done by selecting \textit{maximum} over them. That is, latest arrived tuple's timestamp is transferred to the new tuple as a result of aggregation or join. Equation \ref{eq_1} defines this logic formally.
+The Data Engine component is responsible for generating and queueing the synthetic data. It has two subcomponents: Data Generator and Data Queue. Both of them reside in the same machine to avoid network overhead and the data is kept in memory to circumvent the disk write/read overhead. First subcomponent, data generator, generates data with a given speed. To ensure high throughput we kept the number of fields in an event minimal. To assure the scalability and each Data Generator connects to its own Data Queue rather than to common and centralized message queue. Queue is based on FIFO semantics. In this way, we avoid data de-/serialization, disk read/write and network overhead. Theoretically, this approach has no difference from the one  which includes centralized and distributed message queue. The following analogy can be made: the topic in distributed message queueing system is analogous to Data Queues, and partition is single Data Queue. The Data Generator appends the current time to timestamp field of an event. The event's latency is calculated from this point and the more it stays in queue, the more the latency is. The number of Data Engines can be arbitrary and its overall throughput is only bounded by network bandwidth. As we discussed above, the throughput assessment which is associated with the SUT as a whole,  is done in Data Engine component, which has a clear separation from SUT. 
+
+The SUT is second main component, which processes the data. So the only interface of Data Engine to outer world is Data Queue subcomponent. SUT pulls data from Data Queue. The connection is pull based because we let the SUT to decide when and how much data it can ingest. The SUT connects predefined number of Data Queues. Firstly it combines the input data sources. There can be one or two unions, depending on the operator semantics. For example, windowed aggregation is a single input stream (union of streams) operator but join operator accepts two streams (union of streams) as an input. The latency calculation is done inside SUT. This measurement is associated with the operator inside SDPS, we clearly separate the latency assessment from Operator Under Test (OUT). Placing extra stateless operator just after OUT and measuring the latency between the event time and current time gives the latency of an element. The calculation of latency in windowed aggregation and windowed join operators is shown in Section \ref{sec_latency}. 
 
 
-Here $t \in T$ is a stream tuple,  $t[k]$ is  $k^{th}$ field of particular data point and $\equiv$ means equivalent in terms of type. For aggregation function $|T|$, the size of a set is not bounded, whereas for join function it is bounded by two, being $|T| = 2$.
+%Proper handling tuples' timestamp fields while joining or aggregating is crucial. In this work, \textit{merging} of tuples' timestamp fields is done by selecting \textit{maximum} over them. That is, latest arrived tuple's timestamp is transferred to the new tuple as a result of aggregation or join. Equation \ref{eq_1} defines this logic formally.
+%
+%
+%Here $t \in T$ is a stream tuple,  $t[k]$ is  $k^{th}$ field of particular data point and $\equiv$ means equivalent in terms of type. For aggregation function $|T|$, the size of a set is not bounded, whereas for join function it is bounded by two, being $|T| = 2$.
 
 \begin{figure*}[h]
-\caption{Design of benchmark system.}
 \centering
 \includegraphics[width=1\textwidth]{system_design}
+\caption{Design of benchmark system.}
 \label{fig_design}
 \end{figure*}
 
+\subsection{Use case}
+The use case for this benchmark is provided by \textit{ Rovio Entertainment}. It is known as a video game development company. To get higher customer satisfaction, it is mandatory to analyse the game usage statistics. For example, company releases a new feature for a particular video game. It is essential to have a quick overview of customer's opinion by analysing the usage statistics. For that reason, Rovio uses stream data processing analytics rather than batch based periodic analysis.  In all use cases an event has following fields: event timestamp, key and value. 
+
+\textbf{Windowed Aggregation}
+Windowed aggregations are important part of the statistics analytics from the feed stream. One use case is computing the user average session time within windows. Each event has its geo ID, which indicate the location in which an event was generated. A use case includes partitioning the events by their ID and finding the average session time within windows. Here, the key field is geo location and value field is session time. Another use case is computing the average ads screening time within window for each geo location. 
+
+\textbf{Windowed Join}
+Joining several stream feeds based on key field within window is another general use case for user statistics analytics. One specific use case is joining two user statistics stream feed within window by geo field and calculating an event with higher session time and the difference between them. In this use case the key field would be geo location and value would be the session time. Another use case would be doing the same procedure with ads watch time. 
+
 
 \subsection{Key Performance Indicators}
-To measure the performance of a system, we connected max $16$ data generators to system under test with order of $1$,$2$,$4$,$8$ and $16$ as increasing further does not increase the overall throughput significantly. We call the tests with related workloads as $1x$, $2x$, $4x$, $8x$ and $16x$. Moreover, the configuration of each data generator must be the same. Configuration includes parameters such as overall input size, generation speed, socket port and etc. Equation \ref{eq_2} defines this formally.
+The Key Performance Indicators ( KPIs) for this benchmark are latency and throughput. The throughput indicator is related with SUT, on the other hand, the latency is associated with OUT. 
 
-\begin{equation}
-  \begin{gathered}
- \textbf{Let} \ d_{i}^{c_{i}} \in  D\\
-  \textbf{then}, |D| \gets S \\
-  \textbf{and} \ c_{1} = c_{2} \ ... = c_{n}, \forall n \in S = {1,2,4,8,16}
-  \end{gathered}\label{eq_2}
-\end{equation}
+
+%To measure the performance of a system, we connected max $16$ data generators to system under test with order of $1$,$2$,$4$,$8$ and $16$ as increasing further does not increase the overall throughput significantly. We call the tests with related workloads as $1x$, $2x$, $4x$, $8x$ and $16x$. Moreover, the configuration of each data generator must be the same. Configuration includes parameters such as overall input size, generation speed, socket port and etc. Equation \ref{eq_2} defines this formally.
+%
+%\begin{equation}
+%  \begin{gathered}
+% \textbf{Let} \ d_{i}^{c_{i}} \in  D\\
+%  \textbf{then}, |D| \gets S \\
+%  \textbf{and} \ c_{1} = c_{2} \ ... = c_{n}, \forall n \in S = {1,2,4,8,16}
+%  \end{gathered}\label{eq_2}
+%\end{equation}
 
 
 \subsubsection{Throughput}
-Throughput of a system is calculated as summing the consumer throughput of all queues.  If the system pulls the data from all queues with same rate then, the throughput of all queues will be the same. It is crucial for experiments to adjust the throughput of producer to be approximately the same as the one of consumer. The semantics behind adjustability of consumer and producer throughputs must be clear and applicable to stream data processing system designs as well. Here producer is data generator and consumer is stream data processing system. 
+\textit{Definition.  Let $c_{i} \in C$ be a configuration for a Data Engine, $d_{i} \in D$,  $c_{i}^{s}$ be the data generation speed configuration which can be sustained by SUT. If  $\exists c_{i} \in C$ such that $c_{1} = c_{2}... = c_{i}$ and  $T = \sum_{i}c_{i}^{s}$ is maximum, $\forall c_{i} \in C, \forall i \in \{1,2,3 ... |C|\}$, then $T$ is a maximum sustainable throughput of SUT.}
+
+Throughput of a system is calculated as summing the throughout of each Data Engine  because the SUT is expected to pull the data from all Data Queue subcomponent of Data Engine approximately with same rate. We restricted the configuration of all Data Engines to be the same, to ease calculating the maximum sustainable throughput. It is crucial to node that the maximum sustainable throughput is not the same as maximum throughput of Data Engine but the one for SUT. 
+
+It is crucial for experiments to adjust the throughput of producer to be approximately the same as the one of consumer. The semantics behind adjustability of consumer and producer throughputs must be clear and applicable to stream data processing system designs as well. Here producer is data generator and consumer is stream data processing system. 
 
 To overcome this problem, we propose simple mechanism to adjust upper limit of producer throughput  to consumer throughput. Figure \ref{fig_queue} shows the basic intuition behind this. There are three borderlines to be taken into consideration. The green portion of queue $S_{a}$,  is acceptable sustainability. That is, if consumer can consume elements with no more than $S_{a}$ elements left in queue, then this is acceptable and consumer and producer throughputs are said to be adjustable. However, the engines we test have back-pressure mechanism that can limit consumer pulls from queue. So, if consumer is slower than producer, we let $S_{b}$ elements to be buffered additionally. This behaviour, on the other hand, is allowed not \textit{limited time}(the definition of \textit{limited time} is below). If after \textit{limited time} the queue size is not within boundaries of $S_{a}$ then the application quits, indicating the consumer cannot sustain current data generation rate. Finally, if queue size increases within boundaries of $S_{a} + S_{b}$ then there is no need to wait for back-pressure and application quits immediately. 
 
@@ -305,6 +337,7 @@ round_{max} \gets \frac{S_{b}}{S_{a}}
 $round_{length}$ is the check period in queue. That is, after every $round_{length}$ tuple put into the queue, the check has been done of queue size. If queue size is between $S_{a}$ and $S_{b}$ then, the application is not quit immediately, but instead checked $round_{max}$ times. The calculation of these variables are shown in Equation \ref{eq_3}.
 
 \subsubsection{Latency}
+\label{sec_latency}
 
 \begin{equation}
   \begin{gathered}
@@ -322,9 +355,9 @@ The latency of each tuple is calculated
 
 
 \begin{figure}[h]
-\caption{Basic intuition behind \textit{back-pressure-compatible queue}}
 \centering
 \includegraphics[width=0.45\textwidth]{queue}
+\caption{Basic intuition behind \textit{back-pressure-compatible queue}}
 \label{fig_queue}
 \end{figure}
 
@@ -362,20 +395,14 @@ same as above
 % latex bibtex latex latex
 % to resolve all references
 
-\subsection{References}
-Generated by bibtex from your ~.bib file.  Run latex,
-then bibtex, then latex twice (to resolve references).
 
 %APPENDIX is optional.
 % ****************** APPENDIX **************************************
 % Example of an appendix; typically would start on a new page
 %pagebreak
 
-\begin{appendix}
-You can use an appendix for optional proofs or details of your evaluation which are not absolutely necessary to the core understanding of your paper. 
 
 
-\end{appendix}
 
 
 
