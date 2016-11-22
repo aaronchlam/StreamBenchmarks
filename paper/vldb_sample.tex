@@ -12,6 +12,9 @@
 \usepackage{url}
 \usepackage{subcaption}
 \usepackage{amsmath}
+\usepackage[utf8]{inputenc}
+\usepackage{booktabs,floatrow}
+
 \usepackage[linesnumbered,ruled]{algorithm2e}
 \SetKwRepeat{Do}{do}{while}%
 
@@ -382,7 +385,7 @@ Latency is another KPI for this benchmark and defining the latency needs clear s
 
 The first point is the aggregation or join of tuples with timestamp fields. While the use case provides the semantics for aggregating or joining the tuples' $value$ fields, the one for timestamp field is unclear. For example, in windowed aggregation operator, which calculates the average of elements' $value$ field, the aggregation semantics with tuples' timestamp field is unclear.  The Equation \ref{eq_1} addresses this issue. Let $t[k]$ and $t'[k]$ denote the timestamp field for tuples $t$ and $t'$ respectively,  $\equiv$ be an operator checking for the type and $TS$ be tuple field of type timestamp. Here, $f_{s}$ is an stateful operator which takes a set of tuples $t \in T$ and converts it to tuple $t'$. Then there exists $k$ and $m$ such that the respective fields of input and output tuples have the same type being timestamp and the output tuple's timestamp is calculated taking maximum among input tuples. Here input and output tuples are associated with operator $f_{s}$ and not with the SUT.
 
-The calculate the latency, it is crucial to have clear boundaries of when to start and stop the stopwatch for each tuple. Equation \ref{eq_2} defines the basic semantics behind this. This is basically a follow-up for Equation \ref{eq_1}. Let $t_{i} \in I$ be a tuple in input set and $t_{o} \in O$ be a tuple in output set. The latency is associated with output tuples. So, the latency of tuple $t_{o}$ is calculated by extracting the $t_{o}[m]$, the timestamps field from current time. The calculation of output tuples' timestamp field is shown in Equation \ref{eq_1}. 
+To calculate the latency, it is crucial to have clear boundaries of when to start and stop the stopwatch for each tuple. Equation \ref{eq_2} defines the basic semantics behind this. This is basically a follow-up for Equation \ref{eq_1}. Let $t_{i} \in I$ be a tuple in input set and $t_{o} \in O$ be a tuple in output set. The latency is associated with output tuples. So, the latency of tuple $t_{o}$ is calculated by extracting the $t_{o}[m]$, the timestamps field from current time. The calculation of output tuples' timestamp field is shown in Equation \ref{eq_1}. 
 
 
 \begin{equation}
@@ -438,11 +441,294 @@ The following configurations are used throughput experiments:
 \end{itemize}
 
 \subsection{Keyed Windowed Aggregations}
-scale up/down
 
-window size increase/decrease
+\subsubsection{Storm}
 
-batch siez increase/decrease
+
+\begin{figure*}
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{storm/2_1}
+        \caption{2 Node latency histogram}
+        \label{fig_no_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+      %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{storm/3_1}
+        \caption{3 Node latency histogram}
+        \label{fig_yes_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+    %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{storm/4_1}
+        \caption{4 Node latency histogram}
+        \label{fig_partial_queue}
+    \end{subfigure}
+        \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{storm/8_1}
+        \caption{8 Node latency histogram}
+        \label{fig_partial_queue}
+    \end{subfigure}
+
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{storm/2_2}
+        \caption{2 Node latency time series}
+        \label{fig_no_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+      %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{storm/3_2}
+        \caption{3 Node latency time series}
+        \label{fig_yes_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+    %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{storm/4_2}
+        \caption{4 Node latency time series}
+        \label{fig_partial_queue}
+    \end{subfigure}
+        \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{storm/8_2}
+        \caption{8 Node latency time series}
+        \label{fig_partial_queue}
+    \end{subfigure}
+
+    \label{fig_flink_agg_1}
+        \caption{Latency of windowed aggregations for Storm}
+\end{figure*}
+
+
+\subsubsection{Spark}
+
+
+
+\begin{figure*}
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/2_4_1}
+        \caption{2 Node latency histogram}
+        \label{fig_no_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+      %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/3_4_1}
+        \caption{3 Node latency histogram}
+        \label{fig_yes_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+    %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/4_4_1}
+        \caption{4 Node latency histogram}
+        \label{fig_partial_queue}
+    \end{subfigure}
+        \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/8_4_1}
+        \caption{8 Node latency histogram}
+        \label{fig_partial_queue}
+    \end{subfigure}
+
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/2_4_2}
+        \caption{2 Node latency time series}
+        \label{fig_no_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+      %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/3_4_2}
+        \caption{3 Node latency time series}
+        \label{fig_yes_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+    %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/4_4_2}
+        \caption{4 Node latency time series}
+        \label{fig_partial_queue}
+    \end{subfigure}
+        \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/8_4_2}
+        \caption{8 Node latency time series}
+        \label{fig_partial_queue}
+    \end{subfigure}
+
+    \label{fig_flink_agg_1}
+        \caption{Latency of windowed aggregations for Spark (4 sec batch).}
+\end{figure*}
+
+
+
+
+
+\begin{figure*}
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/2_2_1}
+        \caption{2 Node latency histogram}
+        \label{fig_no_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+      %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/3_2_1}
+        \caption{3 Node latency histogram}
+        \label{fig_yes_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+    %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/4_2_1}
+        \caption{4 Node latency histogram}
+        \label{fig_partial_queue}
+    \end{subfigure}
+        \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/8_2_1}
+        \caption{8 Node latency histogram}
+        \label{fig_partial_queue}
+    \end{subfigure}
+
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/2_2_2}
+        \caption{2 Node latency time series}
+        \label{fig_no_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+      %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/3_2_2}
+        \caption{3 Node latency time series}
+        \label{fig_yes_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+    %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/4_2_2}
+        \caption{4 Node latency time series}
+        \label{fig_partial_queue}
+    \end{subfigure}
+        \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{spark/8_2_2}
+        \caption{8 Node latency time series}
+        \label{fig_partial_queue}
+    \end{subfigure}
+
+    \label{fig_flink_agg_1}
+        \caption{Latency of windowed aggregations for Spark (2 sec batch).}
+\end{figure*}
+
+
+
+
+
+\subsubsection{Flink}
+
+
+
+
+
+\begin{figure*}
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{flink/2_1}
+        \caption{2 Node latency histogram}
+        \label{fig_no_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+      %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{flink/3_1}
+        \caption{3 Node latency histogram}
+        \label{fig_yes_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+    %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{flink/4_1}
+        \caption{4 Node latency histogram}
+        \label{fig_partial_queue}
+    \end{subfigure}
+        \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{flink/8_1}
+        \caption{8 Node latency histogram}
+        \label{fig_partial_queue}
+    \end{subfigure}
+
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{flink/2_2}
+        \caption{2 Node latency time series}
+        \label{fig_no_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+      %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{flink/3_2}
+        \caption{3 Node latency time series}
+        \label{fig_yes_queue}
+    \end{subfigure}
+    ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc. 
+    %(or a blank line to force the subfigure onto a new line)
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{flink/4_2}
+        \caption{4 Node latency time series}
+        \label{fig_partial_queue}
+    \end{subfigure}
+        \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{flink/8_2}
+        \caption{8 Node latency time series}
+        \label{fig_partial_queue}
+    \end{subfigure}
+
+    \label{fig_flink_agg_1}
+        \caption{Latency of windowed aggregations for Flink.}
+\end{figure*}
+
+
+    \begin{table}
+        \begin{tabular}{lllll}\toprule
+            &\textbf{2 Node} & \textbf{3 Node} & \textbf{4 Node} & \textbf{8 Node}\\\midrule
+            Storm & 345 & 235 & 345 & 345\\
+            Spark(2sec) & 8K & 15K & 23K & 23K\\
+            Spark(4sec) & 240K & 480K & 656K & 920K\\
+            Flink & 1072K & 1232K & 1232K & 1232K\\
+            \\\bottomrule
+        \end{tabular}
+        \caption{Sustainable throughput}\label{Tab1}
+    \end{table} 
+
+    \begin{table}
+        \begin{tabular}{lllll}\toprule
+            &\textbf{2 Node} & \textbf{3 Node} & \textbf{4 Node} & \textbf{8 Node}\\\midrule
+            Storm & 345 & 235 & 345 & 345\\
+            Spark(2sec) & 376 & 707 & 1.1K & 1.1K\\
+            Spark(4sec) & 12K & 24K & 33K & 47K\\
+            Flink & 53K & 58K & 58K & 58K\\
+            \\\bottomrule
+        \end{tabular}
+        \caption{Average Window size}\label{Tab1}
+    \end{table} 
+
+    \begin{table}
+        \begin{tabular}{lllll}\toprule
+            &\textbf{2 Node} & \textbf{3 Node} & \textbf{4 Node} & \textbf{8 Node}\\\midrule
+            Storm & 345 & 235 & 345 & 345\\
+            Spark(2sec) & 1.6s & 1.7s & 1.7s & 1.6s\\
+            Spark(4sec) & 6.9s & 3.6s & 4.4s & 3.9s\\
+            Flink & 0.3s & 0.4s & 0.35s & 0.28s\\
+            \\\bottomrule
+        \end{tabular}
+        \caption{Average Latency}\label{Tab1}
+    \end{table} 
+
 
 \subsection{Joins}
 same as above
