@@ -29,9 +29,12 @@ const char *geoListAll[] = {
             
             };
 char **reducedGeoList;
+char ** reducedGeoListRemaining;
 unsigned long benchmarkCount;
 unsigned long geoIndex=0;
+unsigned long geoIndexRemaining=0;
 int geoArraySize;
+int geoArraySizeRemaining;
 int maxPrice = 100;
 char ** buffer;
 int port;
@@ -57,6 +60,7 @@ char * consumerFP;
 int nonSleepCount;
 int sustainability_limit;
 int backpressure_limit;
+double partitionSize;
 
 unsigned long long  get_current_time_with_ms (void)
 {
@@ -81,26 +85,52 @@ int msleep(unsigned long milisec)
 void initializeGeoList( double d){
 	int allSize = sizeof(geoListAll)/sizeof(geoListAll[0]);
 	geoArraySize = allSize * fabs(d);
+        geoArraySizeRemaining = allSize * (1 - fabs(d));
 	reducedGeoList = (char**)malloc(sizeof(char*) * geoArraySize);
-	if (d > 0){
+
+        reducedGeoListRemaining = (char **) malloc (sizeof(char*) * geoArraySizeRemaining   ) ;
+        if (d > 0){
 		for(int i = 0; i < geoArraySize; i ++){
 			*(reducedGeoList + i) = malloc(sizeof(geoListAll[i]));
 			   strcpy(reducedGeoList[i], geoListAll[i]);
-		}	
+		}
+
+		for(int i = allSize - geoArraySize,b=0; i < allSize; i ++,b++){
+                        *(reducedGeoListRemaining + b) = malloc(sizeof(geoListAll[i]));
+                        strcpy(reducedGeoListRemaining[b], geoListAll[i]);
+                }	
 	} else {
 		for(int i = allSize - geoArraySize,b=0; i < allSize; i ++,b++){
                         *(reducedGeoList + b) = malloc(sizeof(geoListAll[i]));
                         strcpy(reducedGeoList[b], geoListAll[i]);
-        }	
+                }
+
+		for(int i = 0; i < geoArraySize; i ++){
+			*(reducedGeoListRemaining + i) = malloc(sizeof(geoListAll[i]));
+			   strcpy(reducedGeoListRemaining[i], geoListAll[i]);
+		}
+
 	}
 }
 
 char* generateJsonString(void){
 	char * newJson = malloc(100);
-	sprintf(newJson,"{\"geo\":\"%s\",\"price\":\"%d\",\"ts\":\"%llu\"}\n\0", reducedGeoList[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
-	geoIndex++;
-	geoIndex = geoIndex % geoArraySize;	
-	return newJson;
+        if(partitionSize != 1.0 && geoIndex % geoArraySize == 0 ){
+	   sprintf(newJson,"{\"geo\":\"%s\",\"price\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoListRemaining[geoIndexRemaining] , rand() % maxPrice,get_current_time_with_ms());
+           geoIndex ++;
+	   geoIndexRemaining++;
+	   geoIndexRemaining = geoIndexRemaining % geoArraySizeRemaining;	
+	   return newJson;
+        }
+        else{
+	   sprintf(newJson,"{\"geo\":\"%s\",\"price\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoList[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
+           
+           geoIndex++;
+ 	   geoIndex = geoIndex % geoArraySize;	
+	   return newJson;
+        }
+
+
 }
 
 void *produce( void  )
@@ -289,7 +319,7 @@ void initLogFiles(void){
 
 int main(int argc , char *argv[])
 {
-    double partitionSize;
+
     statsPath = malloc(1000);
     pthread_t producer, consumer;
     sscanf(argv[1],"%lf",&partitionSize);
@@ -304,7 +334,6 @@ int main(int argc , char *argv[])
     initializeGeoList( partitionSize);
     int seed = 123;
     srand(seed);
-    
     sem_init(&sem, 0 , 0);
     buffer = malloc (benchmarkCount * sizeof(*buffer));   
     

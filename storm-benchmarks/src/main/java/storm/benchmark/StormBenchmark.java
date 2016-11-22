@@ -277,6 +277,10 @@ public class StormBenchmark {
         }
 
         Config conf = new Config();
+        conf.put(Config.TOPOLOGY_TRANSFER_BUFFER_SIZE,            32);
+        conf.put(Config.TOPOLOGY_EXECUTOR_RECEIVE_BUFFER_SIZE, 16384);
+        conf.put(Config.TOPOLOGY_EXECUTOR_SEND_BUFFER_SIZE,    16384);
+
         if (runningMode.equals("cluster")) {
 //            conf.setNumWorkers(CommonConfig.STORM_WORKERS());
   //          conf.setNumAckers(CommonConfig.STORM_ACKERS());
