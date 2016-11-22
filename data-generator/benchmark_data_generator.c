@@ -61,6 +61,7 @@ int nonSleepCount;
 int sustainability_limit;
 int backpressure_limit;
 double partitionSize;
+unsigned long selectivity;
 
 unsigned long long  get_current_time_with_ms (void)
 {
@@ -95,7 +96,7 @@ void initializeGeoList( double d){
 			   strcpy(reducedGeoList[i], geoListAll[i]);
 		}
 
-		for(int i = allSize - geoArraySize,b=0; i < allSize; i ++,b++){
+		for(int i = geoArraySize +1 ,b=0; i < allSize; i ++,b++){
                         *(reducedGeoListRemaining + b) = malloc(sizeof(geoListAll[i]));
                         strcpy(reducedGeoListRemaining[b], geoListAll[i]);
                 }	
@@ -113,24 +114,20 @@ void initializeGeoList( double d){
 	}
 }
 
-char* generateJsonString(void){
+char* generateJsonString( unsigned long currentIndex){
 	char * newJson = malloc(100);
-        if(partitionSize != 1.0 && geoIndex % geoArraySize == 0 ){
+        if(partitionSize != 1.0 && currentIndex % selectivity == 0 ){
 	   sprintf(newJson,"{\"geo\":\"%s\",\"price\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoListRemaining[geoIndexRemaining] , rand() % maxPrice,get_current_time_with_ms());
-           geoIndex ++;
 	   geoIndexRemaining++;
 	   geoIndexRemaining = geoIndexRemaining % geoArraySizeRemaining;	
 	   return newJson;
         }
         else{
 	   sprintf(newJson,"{\"geo\":\"%s\",\"price\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoList[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
-           
            geoIndex++;
  	   geoIndex = geoIndex % geoArraySize;	
 	   return newJson;
         }
-
-
 }
 
 void *produce( void  )
@@ -148,7 +145,7 @@ void *produce( void  )
     int backpressure_tolerance_iteration = backpressure_limit/sustainability_limit;
     for (unsigned long i = 0; i < benchmarkCount; ){
 	for(int k = 0; k < nonSleepCount && i < benchmarkCount; k++ ,i++){
-         buffer[i] = generateJsonString();
+         buffer[i] = generateJsonString(i);
          if(i % logInterval == 0){
               sem_getvalue(&sem, &queue_size);
               if(queue_size > sustainability_limit){
@@ -331,6 +328,7 @@ int main(int argc , char *argv[])
     sscanf(argv[7],"%d",&nonSleepCount);
     sscanf(argv[8],"%d",&sustainability_limit);
     sscanf(argv[9],"%d",&backpressure_limit);
+    sscanf(argv[10],"%lu",&selectivity);
     initializeGeoList( partitionSize);
     int seed = 123;
     srand(seed);
