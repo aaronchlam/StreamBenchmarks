@@ -329,9 +329,6 @@ To examine the system's sustainability with a given throughput, we divide the qu
 The semantics behind  examination of SUT's sustainability with a given throughput must be clear. Moreover, it should support the system specific behaviours like back-pressure. Algorithm \ref{alg_sustainable} show an algorithm to check if the  SUT can sustain  the given throughput of a single Data Engine. It gets the configuration $c$ of Data Engine as an input. After firing the Data Engine with configuration $c$, in line $3$, it is put to $idle$ position, meaning no data is generated until the SUT makes its first data pull request from Data Queue subcomponent. $c^{input}$ is the input count that must be generated in particular Data Engine.
  In lines $10-11$ the events are generated with speed $c^{sp}$ in Data Generator subcomponent of Data Engine component and put into the queue of Data Queue subcomponent. We check the queue size periodically, once per $c^{a}$ element and not for each iteration. The first reason is that the data pull rate of stream data processing engine is not steady and therefore checking the queue size with little delays makes more sense. The second reason is that, $c^{a}$ can be thought of the $confidence limit$ as shown in Figure \ref{fig_queue}. While checking the queue size there are three possibilities. The first is (lines $13-15$), the size is bigger than $c^{b}$, the back-pressure limit. In this case, the Data Engine is stopped and the $false$ is returned meaning the SUT is not sustainable with given throughput. The second is (lines $16-18$), queue size is less than $c^{a}$, the acceptable queue size. In this case, we set back-pressure counter to zero, in case there was one and continue generating data. The third is (lines $19-23$), the size   of queue is within boundaries of $c^{a}$ and $c^{b}$. In this case, we can tolerate the SUT for at most $\frac{c^{b}}{c^{a}}$ times. If the system can pull the data in queue and set the size of queue within \textit{confidence} boundaries ($c^{a}$) in a given period, then it continues, else, the application returns $false$ meaning, the SUT cannot sustain the given throughput. 
 
-
-
-
 \begin{algorithm}
     \SetKwInOut{Input}{Input}
     \SetKwInOut{Output}{Output}
@@ -369,13 +366,10 @@ The semantics behind  examination of SUT's sustainability with a given throughpu
                      }
                }
         }
-        
        }
-
     \caption{Throughput sustainability test of single data engine}
     \label{alg_sustainable}
 \end{algorithm}
-
 
 \textit{Definition.  Let $c_{i} \in C$ be a configuration for a Data Engine, $c_{i}^{dr}$ be a data generation rate of particular Data Generator, $d_{i} \in D$ and $n$ be the number of Data Engines being $n = |D|$.  The SUT is sustainable with given throughput $n * c_{dr}$,  $iff$ $isSustainable(c_{i})  == true$ $\forall$ $i \in \{1,2,3,...n\}$}
 
@@ -384,20 +378,32 @@ The above definition states that the SUT is sustainable with a given data genera
 
 \subsubsection{Latency}
 \label{sec_latency}
+Latency is another KPI for this benchmark and defining the latency needs clear semantics. There are several points that needs to be clarified: \textit{i)} the aggregation or join of timestamp fields of tuples and \textit{ii)} clear boundaries (start and end timestamp) of latency.
+
+The first point is the aggregation or join of tuples with timestamp fields. While the use case provides the semantics for aggregating or joining the tuples' $value$ fields, the one for timestamp field is unclear. For example, in windowed aggregation operator, which calculates the average of elements' $value$ field, the aggregation semantics with tuples' timestamp field is unclear.  The Equation \ref{eq_1} addresses this issue. Let $t[k]$ and $t'[k]$ denote the timestamp field for tuples $t$ and $t'$ respectively,  $\equiv$ be an operator checking for the type and $TS$ be tuple field of type timestamp. Here, $f_{s}$ is an stateful operator which takes a set of tuples $t \in T$ and converts it to tuple $t'$. Then there exists $k$ and $m$ such that the respective fields of input and output tuples have the same type being timestamp and the output tuple's timestamp is calculated taking maximum among input tuples. Here input and output tuples are associated with operator $f_{s}$ and not with the SUT.
+
+The calculate the latency, it is crucial to have clear boundaries of when to start and stop the stopwatch for each tuple. Equation \ref{eq_2} defines the basic semantics behind this. This is basically a follow-up for Equation \ref{eq_1}. Let $t_{i} \in I$ be a tuple in input set and $t_{o} \in O$ be a tuple in output set. The latency is associated with output tuples. So, the latency of tuple $t_{o}$ is calculated by extracting the $t_{o}[m]$, the timestamps field from current time. The calculation of output tuples' timestamp field is shown in Equation \ref{eq_1}. 
+
 
 \begin{equation}
   \begin{gathered}
-\textbf{Let} f:\{t| t\in T \} \to t'  , \\
-  \textbf{then}, \exists k \ s.t. \ t[k]  \equiv t'[k] \ \forall t \in T\\
-  \textbf{and} \ t'[k] \gets \argmax\{t[k] \ | \ t \in T\}  \\
-   \\
+\textbf{Let} f_{s}:\{t| t\in T \} \to t'  , \\
+  \textbf{then}, \exists k,m \ s.t. \ t[k]  \equiv t'[m] \equiv \ TS \ \forall t \in T\\
+  \textbf{and} \ t'[m] \gets \argmax\{t[k] \ | \ t \in T\}  
+    \end{gathered}
+      \label{eq_1} 
+  \end{equation}
+
+   \begin{equation}
+     \begin{gathered}
   \textbf{Let} \ t_{i} \in I , t_{o} \in O \\
-\textbf{then} \ Latency_{ \ t_{o}} = time_{now} -  t_{o}[k] \\
-s.t. \ f:\{t_{i} \ | t_{i} \in I \} \to \{t_{o} \ | t_{o} \in O \} 
-  \end{gathered}\label{eq_1} 
+\textbf{then} \ Latency_{ \ t_{o}} = time_{now} -  t_{o}[m] \\
+s.t. \ f_{s}:\{t_{i} \ | t_{i} \in I \} \to \{t_{o} \ | t_{o} \in O \} \\
+\textbf{and} \ t_{o}[m] \equiv TS
+  \end{gathered}
+  \label{eq_2} 
 \end{equation}
 
-The latency of each tuple is calculated
 
 
 \begin{figure}[h]
@@ -410,7 +416,26 @@ The latency of each tuple is calculated
 
 \section{Evaluation}
 \subsection{Configuration}
-spark batch size
+The following configurations are used throughput experiments:
+\begin{itemize}
+\item Cluster size: 2,3,4 and 8 node clusters
+\item Parallelism within single node: number of cores, which is 16.
+\item Parallelism within cluster: (Parallelism within single node) * (number of nodes)
+
+\item Backpressure: enabled in all systems
+\item Network bandwidth: 1Gb
+\item Number of Data Engines running in parallel: 16
+\item Allocated memory: 16GB
+\item Cluster type: Standalone
+\item Input size for aggregation use case: 150M * 16
+\item Input size for join use case: 
+\item Spark batch size: 4 seconds and 2 seconds
+\item Window type: Processing time
+\item Number of distinct keys in input: 160
+\item Join inputs selectivity: 
+\item $c_{a}$, acceptable queue limit: 1M
+\item $c_{b}$ backpressure tolerated queue limit: 15M
+\end{itemize}
 
 \subsection{Keyed Windowed Aggregations}
 scale up/down
