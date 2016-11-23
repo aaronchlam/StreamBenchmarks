@@ -65,7 +65,7 @@ object SparkBenchmark {
       val price: Double = obj.getDouble("price")
       val geo: String = obj.getString("geo")
       val ts: Long =  obj.getLong("ts")
-      ((geo), (ts, price))
+      ((geo+price), (ts))
     }).window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
 
     val windowedStream2 = joinSource2.map(s => {
@@ -73,15 +73,13 @@ object SparkBenchmark {
       val price: Double = obj.getDouble("price")
       val geo: String = obj.getString("geo")
       val ts: Long =  obj.getLong("ts")
-      ((geo), (ts, price))
+      ((geo+price), (ts))
     }).window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
 
 
     val joinedStream = windowedStream1.join(windowedStream2).map(t => (
-                                                                      t._1,
-                                                                      System.currentTimeMillis() - Math.max(t._2._1._1, t._2._2._1),
-                                                                      Math.abs(t._2._1._2 - t._2._2._2),
-                                                                      Math.max(t._2._1._1, t._2._2._1)))
+                                                                      System.currentTimeMillis() - Math.max(t._2._1,t._2._2),
+                                                                      Math.max(t._2._1,t._2._2)))
 
     joinedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
 

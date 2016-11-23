@@ -5,24 +5,26 @@
 package flink.benchmark;
 
 import benchmark.common.CommonConfig;
+import data.source.model.AdsEvent;
 import org.apache.flink.api.common.functions.JoinFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
+import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.java.functions.KeySelector;
-import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.api.java.tuple.Tuple4;
-import org.apache.flink.api.java.tuple.Tuple5;
-import org.apache.flink.api.java.tuple.Tuple6;
+import org.apache.flink.api.java.tuple.*;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.windowing.assigners.SlidingProcessingTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.connectors.fs.RollingSink;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.net.InetAddress;
 
 /**
  * To Run:  flink run target/flink-benchmarks-0.1.0-FlinkBenchmark.jar  --confPath "../conf/benchmarkConf.yaml"
@@ -122,36 +124,37 @@ public class FlinkBenchmark {
         });
 
 
-        DataStream<Tuple3<String, Long, Double>> joinedStream = projectedStream1.join(projectedStream2).
+        DataStream< Long> joinedStream = projectedStream1.join(projectedStream2).
                 where(new KeySelector<Tuple3<String, Long, Double>, String>() {
 
                     @Override
                     public String getKey(Tuple3<String, Long, Double> tuple) throws Exception {
-                        return tuple.f0;
+                        return tuple.f0 + tuple.f2;
                     }
                 }).
                 equalTo(new KeySelector<Tuple3<String, Long, Double>, String>() {
                     @Override
                     public String getKey(Tuple3<String, Long, Double> tuple) throws Exception {
-                        return tuple.f0;
+                        return tuple.f0 + tuple.f2;
                     }
                 }).
                 window(SlidingProcessingTimeWindows.of(Time.milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Time.milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE())))
-                .apply(new JoinFunction<Tuple3<String, Long, Double>, Tuple3<String, Long, Double>, Tuple3<String, Long, Double>>() {
+                .apply(new JoinFunction<Tuple3<String, Long, Double>, Tuple3<String, Long, Double>, Long>() {
 
                     @Override
-                    public Tuple3<String, Long, Double> join(Tuple3<String, Long, Double> t1, Tuple3<String, Long, Double> t2) throws Exception {
-                        return new Tuple3<String, Long, Double>(t1.f0, Math.max(t1.f1,t2.f1),  Math.abs(t1.f2-t2.f2));
+                    public Long join(Tuple3<String, Long, Double> t1, Tuple3<String, Long, Double> t2) throws Exception {
+                        return (Math.max(t1.f1,t2.f1));
                     }
                 });
 
 
-        DataStream<Tuple4<String, Long, Double, Long>> resultingStream = joinedStream.map(new MapFunction<Tuple3<String, Long, Double>, Tuple4<String, Long, Double, Long>>() {
+        DataStream<Tuple2<Long, Long>> resultingStream = joinedStream.map(new MapFunction<Long, Tuple2<Long, Long>>() {
             @Override
-            public Tuple4<String, Long, Double, Long> map(Tuple3<String, Long, Double> t1) throws Exception {
-                return new Tuple4<String, Long, Double, Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2, t1.f1);
+            public Tuple2<Long, Long> map(Long l) throws Exception {
+                return new Tuple2< Long, Long>( System.currentTimeMillis()  - l, l);
             }
         });
+
 
 
         RollingSink sink = new RollingSink<String>(CommonConfig.FLINK_OUTPUT());
@@ -210,9 +213,8 @@ public class FlinkBenchmark {
         sink.setBatchSize(1024 * CommonConfig.OUTPUT_BATCHSIZE_KB()); // this is 400 MB,
 
         mappedStream.addSink(sink);
-
-
     }
+
 }
 
 
