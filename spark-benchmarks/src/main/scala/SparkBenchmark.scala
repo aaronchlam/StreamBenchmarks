@@ -60,21 +60,11 @@ object SparkBenchmark {
         index = index + 1
       }
     }
-    val windowedStream1 = joinSource1.map(s => {
-      val obj: JSONObject = new JSONObject(s)
-      val price: Double = obj.getDouble("price")
-      val geo: String = obj.getString("geo")
-      val ts: Long =  obj.getLong("ts")
-      ((geo+price), (ts))
-    }).window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
+    val windowedStream1 = joinSource1.map(s => deserialize(s))
+      .window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
 
-    val windowedStream2 = joinSource2.map(s => {
-      val obj: JSONObject = new JSONObject(s)
-      val price: Double = obj.getDouble("price")
-      val geo: String = obj.getString("geo")
-      val ts: Long =  obj.getLong("ts")
-      ((geo+price), (ts))
-    }).window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
+    val windowedStream2 = joinSource2.map(s => deserialize(s))
+      .window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
 
 
     val joinedStream = windowedStream1.join(windowedStream2).map(t => (
@@ -83,6 +73,14 @@ object SparkBenchmark {
 
     joinedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
 
+  }
+
+  def deserialize(s:String) = {
+    val obj: JSONObject = new JSONObject(s)
+    val price: Double = obj.getDouble("value")
+    val geo: String = obj.getString("key")
+    val ts: Long =  obj.getLong("ts")
+    ((geo+price), (ts))
   }
 
   def keyedWindowedAggregationBenchmark(ssc: StreamingContext) = {
@@ -96,8 +94,8 @@ object SparkBenchmark {
 
     val keyedStream = socketDataSource.map(s => {
       val obj: JSONObject = new JSONObject(s)
-      val price: Double = obj.getDouble("price")
-      val geo: String = obj.getString("geo")
+      val price: Double = obj.getDouble("value")
+      val geo: String = obj.getString("key")
       val ts: Long =  obj.getLong("ts") ;
 
       ((geo), (ts, price, 1, 1))

@@ -51,8 +51,8 @@ public class StormBenchmark {
         @Override
         public void execute(Tuple tuple) {
             JSONObject obj = new JSONObject(tuple.getString(0));
-            String geo = obj.getString("geo");
-            Double price = obj.getDouble("price");
+            String geo = obj.getString("key");
+            Double price = obj.getDouble("value");
             Long ts = obj.getLong("ts");
             _collector.emit(tuple, new Values(
                     geo,

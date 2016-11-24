@@ -85,7 +85,19 @@ public class FlinkBenchmark {
 
 
 
+
     private static void windowedJoin(StreamExecutionEnvironment env){
+        class Deserializer implements MapFunction<String, Tuple3<String, Long, Double>>{
+            @Override
+            public Tuple3<String, Long, Double> map(String s) throws Exception {
+                JSONObject obj = new JSONObject(s);
+                String geo = obj.getString("key");
+                Double price = obj.getDouble("value");
+                Long ts =  obj.getLong("ts");
+                return new Tuple3<String, Long, Double>(geo, ts , price);
+            }
+
+        }
         DataStream<String> joinStream1 = null;
         DataStream<String> joinStream2 = null;
 
@@ -101,28 +113,8 @@ public class FlinkBenchmark {
             }
         }
 
-        DataStream<Tuple3<String, Long, Double>> projectedStream1 = joinStream1.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
-            @Override
-            public Tuple3<String, Long, Double> map(String s) throws Exception {
-                JSONObject obj = new JSONObject(s);
-                String geo = obj.getString("geo");
-                Double price = obj.getDouble("price");
-                Long ts =  obj.getLong("ts");
-                return new Tuple3<String, Long, Double>(geo, ts , price);
-            }
-        });
-
-        DataStream<Tuple3<String, Long, Double>> projectedStream2 = joinStream2.map(new MapFunction<String, Tuple3<String, Long, Double>>() {
-            @Override
-            public Tuple3<String, Long, Double> map(String s) throws Exception {
-                JSONObject obj = new JSONObject(s);
-                String geo = obj.getString("geo");
-                Double price = obj.getDouble("price");
-                Long ts =  obj.getLong("ts");
-                return new Tuple3<String, Long, Double>(geo, ts , price);
-            }
-        });
-
+        DataStream<Tuple3<String, Long, Double>> projectedStream1 = joinStream1.map(new Deserializer());
+        DataStream<Tuple3<String, Long, Double>> projectedStream2 = joinStream2.map(new Deserializer());
 
         DataStream< Long> joinedStream = projectedStream1.join(projectedStream2).
                 where(new KeySelector<Tuple3<String, Long, Double>, String>() {
@@ -180,8 +172,8 @@ public class FlinkBenchmark {
                     @Override
                     public Tuple5<String, Long, Double, Integer,Integer> map(String s) throws Exception {
                         JSONObject obj = new JSONObject(s);
-                        String geo = obj.getString("geo");
-                        Double price = obj.getDouble("price");
+                        String geo = obj.getString("key");
+                        Double price = obj.getDouble("value");
                         Long ts =  obj.getLong("ts");
                         return new Tuple5<String, Long, Double, Integer,Integer>(geo, ts , price, 1 ,1);
                     }

@@ -1,0 +1,49 @@
+\section{PRELIMINARY AND BACKGROUND}
+
+
+In this section we provide preliminary and background information about the stream data processing engines used throughout this paper.  Initially, the general information about the working principles of particular system is given.  Afterwards, we provide more use case specific info for each system. Because we test engines' partitioned windowed join and  aggregation operators, basic semantics of particular operators , computational model and back-pressure mechanism are analysed.  
+\subsection{Apache Storm}
+
+Apache Storm is a distributed stream processing computation framework which was open sourced after being acquired by Twitter. 
+
+
+\textbf{Computational model}
+Storm operates on tuple streams and provides record-by-record stream processing. It supports at-least-once processing (when there are failures events are replayed) mechanism and guarantees all tuples to be processed. Storm also supports exactly-once semantics with its Trident abstraction. The core of Storm data processing is a computational topology which consists of spouts and bolts.  Spouts are source operators whereas bolts are processing and sink operators. Because Storm topology is DAG structured, where the edges are stream tuples and vertices are operators (bolts and spouts), when a spout or bold emits a tuple, the ones that are subscribed to particular spout or bolt receive input. Storm's parallelism model is based on \textit{tasks}. Each task runs in parallel and by default single thread is allocated per task. 
+
+Storm's lower level API's provide little support for managing the memory and state. Therefore, choosing the right data structure for state management, utilizing memory usage efficiently my making computations incrementally  is up to the user. 
+memory management. Storm supports cashing and batching the state transition. However, the efficiency of particular operation degrades as the size of state grows.  Storm  supports back-pressure.
+
+
+
+\textbf{Windowing}.
+Storm has built-in support for windowed calculations. That is, partitioned windowed joins and aggregations are supported internally.  Although the information of expired, new arrived and total tuples within window is provided through APIs, the state management and making computations incremental  should be done manually. Storm supports processing and event-time windows with sliding and tumbling window features. Processing time windows include time and count based semantics. For event-time windows, tuples should have separate timestamp field so that the engine can create periodic watermarks. One of the downsides of Storm's relying heavily on ackers, is that tuples can be acked once they completely flush out of window. This can be an issue specially, on windows with big length and small slide.  
+
+
+
+\subsection{Apache Spark}
+Apache Spark is an open source data processing engine, originally developed at the University of California, Berkeley. 
+
+\textbf{Computational model}
+Spark internally is batch processing engine. It handles the stream processing by micro-batches. As can be seen from Figure \ref{fig_micro_batch},  Spark Streaming resides at the intersection of batch and stream processing.  Resilient Distributed Dataset (RDD) is a fault tolerant abstraction which enables in memory parallel computation in  distributed cluster environment \cite{zaharia2012resilient}. Unlike Storm and Flink, which support one record at a time, Spark Streaming inherits its architecture from batch processing which support processing records in micro-batches. 
+
+One of Spark's features is that it supports lazy evaluation and tries to  limit the amount of work it has to do. This enables the engine to run more efficiently. Spark also supports DAG based execution graph which works implementing  stage-oriented scheduling. Unlike from Flink and Storm, which also work based on DAG exetuion graph, Spark computing unit in graph is data set rather than streaming tuple and each vertex in graph is a stage rather than operators. RDDs are guaranteed to be processed in order in a single DStream. However, the order guarantee within RDD is not provided since each RDD is processed in parallel. 
+
+Spark Streaming has improved significantly its memory management in recent releases.  The memory is shared between execution and storage. This unified memory management supports dynamic memory management between the two modules. Moreover, Spark supports dynamic memory management throughout the tasks and within operators of each task. 
+
+\textbf{Windowing}
+Spark Streaming has a built-in support for windowed calculations. Processing time windows with sliding and tumbling versions are  supported in Spark. The operations done with sliding windows, are internally incrementalized transparent to the user.  However, choosing the length batch interval can affect the window based analytics. Firstly, the latency and response time of windowed analytics is strongly replying on batch interval. Secondly, supporting only processing time windowed analytics, can still be a bottleneck in some use cases. Spark supports back pressure which is very useful in windowed calculations. The window size must be a multiple of the batch interval, because window keeps the particular number of batches until it is purged. 
+
+
+
+
+\subsection{Apache Flink}
+Apache Flink which was started off as an academic open source project (Stratosphere \cite{alexandrov2014stratosphere}) in Technical University of  Berlin.
+
+\textbf{Computational model}
+Distributed dataflow engine is standing in the core of Flink. It is responsible for executing the dataflow programs. Like Storm, A Flink runtime program is a DAG of stateful operators connected with data streams. Flink's runtime engine supports unified processing of batch (bounded) and stream (unbounded) considering former as being the special case of the latter.
+
+Flink provides its own memory management to avoid long running JVM's garbage collector stalls by serialising data into memory segments. 
+The data exchange in distributed environment is done via buffers. So, producer takes a buffer from the pool, fill it up with data, and the consumer receives data and frees the buffer informing the memory manager. There are different mechanisms such as sending when buffer is full or sending when timeout is reached to link buffers between consumer and producer or sending locally or remotely. Flink provides wide range of high level and user friendly APIs to manage the state. The incremental state update, managing the memory or checkpointing with big states is done automatically, transparent to user. 
+
+\textbf{Windowing}
+Flink owns strong feature set for building and evaluating windows on data streams. With wide range of pre-defined windowing operators, it supports user defined windows with custom logic. The engine provides processing time, event time and ingestion notion of time.  In processing time, like Spark,  windows are defined with respect to the wall clock of the machine that is responsible for building and processing  a window. In event time on the other hand, the notion of time is  determined when the event are created. Like in Storm, the timestamps must be attached to each event record as a separate field. In ingestion time, the system still processes with event time semantics but on the timestamps which were assigned when tuples arrive the system. Flink has a support for out-of-ordered streams which gained popularity after Googles MilWheel and Dataflow papers \cite{akidau2013millwheel,akidau2015dataflow}
