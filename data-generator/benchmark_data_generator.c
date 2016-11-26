@@ -117,13 +117,13 @@ void initializeGeoList( double d){
 char* generateJsonString( unsigned long currentIndex){
 	char * newJson = malloc(100);
         if(partitionSize != 1.0 && currentIndex % selectivity == 0 ){
-	   sprintf(newJson,"{\"geo\":\"%s\",\"price\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoListRemaining[geoIndexRemaining] , rand() % maxPrice,get_current_time_with_ms());
+	   sprintf(newJson,"{\"key\":\"%s\",\"value\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoListRemaining[geoIndexRemaining] , rand() % maxPrice,get_current_time_with_ms());
 	   geoIndexRemaining++;
 	   geoIndexRemaining = geoIndexRemaining % geoArraySizeRemaining;	
 	   return newJson;
         }
         else{
-	   sprintf(newJson,"{\"geo\":\"%s\",\"price\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoList[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
+	   sprintf(newJson,"{\"key\":\"%s\",\"value\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoList[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
            geoIndex++;
  	   geoIndex = geoIndex % geoArraySize;	
 	   return newJson;
