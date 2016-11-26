@@ -20,37 +20,23 @@ import java.util.logging.SimpleFormatter;
 public class DataGenerator extends Thread {
     private int benchmarkCount;
     private long sleepTime;
-    private int blobSize;
-    private boolean isRandomGeo;
     private static Double partition;
-    private boolean putTs;
     private BlockingQueue<String> buffer;
     private AdsEvent adsEvent;
     private HashMap<Long, Integer> bufferSizeAtTime = new HashMap<>();
-    private  String statisticsBufferSizeFile;
-    private int statisticsPeriod;
 
     private HashMap<Long,Integer> dataGenRate = new HashMap<>();
-    private  String statisticsDataRateFile;
 
     private DataGenerator(HashMap conf, BlockingQueue<String> buffer) throws IOException {
         this.buffer = buffer;
         this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString());
         this.sleepTime = new Long(conf.get("datagenerator.sleep").toString());
-        this.blobSize = new Integer(conf.get("datagenerator.blobsize").toString());
-        this.isRandomGeo = new Boolean(conf.get("datagenerator.israndomgeo").toString());
-        this.putTs = new Boolean(conf.get("datagenerator.ts").toString());
-        adsEvent = new AdsEvent(isRandomGeo, putTs, partition);
-        statisticsBufferSizeFile = conf.get("datagenerator.statistics.buffer").toString();
-        statisticsPeriod = new Integer(conf.get("datagenerator.statistics.period").toString());
-        statisticsDataRateFile = conf.get("datagenerator.statistics.datarate").toString();
+        adsEvent = new AdsEvent( partition);
     }
 
     public void run() {
         try {
             sendTuples(benchmarkCount);
-            BufferReader.writeHashMapToCsv(bufferSizeAtTime, statisticsBufferSizeFile);
-            BufferReader.writeHashMapToCsv(dataGenRate,statisticsDataRateFile);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -64,9 +50,9 @@ public class DataGenerator extends Thread {
         if (sleepTime != 0) {
             for (int i = 0; i < tupleCount; ) {
                 Thread.sleep(sleepTime);
-                for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
+                for (int b = 0; b < 1 && i < tupleCount; b++, i++) {
                     buffer.put(adsEvent.generateJson());
-                    if (i % statisticsPeriod == 0){
+                    if (i % 1000 == 0){
                         long interval = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
                         int bufferSize = buffer.size();
                         bufferSizeAtTime.put(interval, bufferSize);
@@ -77,9 +63,9 @@ public class DataGenerator extends Thread {
             }
         } else {
             for (int i = 0; i < tupleCount; ) {
-                for (int b = 0; b < blobSize && i < tupleCount; b++, i++) {
+                for (int b = 0; b < 1 && i < tupleCount; b++, i++) {
                     buffer.put(adsEvent.generateJson());
-                    if (i % statisticsPeriod == 0){
+                    if (i % 1000 == 0){
                         long interval = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
                         int bufferSize = buffer.size();
                         bufferSizeAtTime.put(interval, bufferSize);
@@ -126,25 +112,12 @@ class BufferReader extends Thread {
     private PrintWriter out;
     private ServerSocket serverSocket;
     private int benchmarkCount;
-    private  String statisticsThroughputFile;
-    private int statisticsPeriod;
     private HashMap<Long,Integer> thoughputCount = new HashMap<>();
     public BufferReader(BlockingQueue<String> buffer, HashMap conf, PrintWriter out, ServerSocket serverSocket) {
         this.buffer = buffer;
         this.out = out;
         this.serverSocket = serverSocket;
         this.benchmarkCount = new Integer(conf.get("benchmarking.count").toString());
-        try {
-            String logFile = conf.get("datasource.logs").toString();
-            FileHandler fh = new FileHandler(logFile);
-            SimpleFormatter formatter = new SimpleFormatter();
-            fh.setFormatter(formatter);
-            logger.addHandler(fh);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        statisticsThroughputFile = conf.get("datagenerator.statistics.thoughput").toString();
-        statisticsPeriod = new Integer(conf.get("datagenerator.statistics.period").toString());
     }
 
     public void run() {
@@ -155,7 +128,7 @@ class BufferReader extends Thread {
             for (int i = 0; i < benchmarkCount; i++) {
                 String tuple = buffer.take();
                 out.println(tuple);
-                if (i % statisticsPeriod == 0 ){
+                if (i % 1000 == 0 ){
                     thoughputCount.put(TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()), i - tempVal);
                     tempVal = i;
                     logger.info(i + " tuples sent from buffer");
@@ -164,7 +137,6 @@ class BufferReader extends Thread {
             long timeEnd = System.currentTimeMillis();
             long runtime = (timeEnd - timeStart) / 1000;
             long throughput = benchmarkCount / runtime;
-            BufferReader.writeHashMapToCsv(thoughputCount,statisticsThroughputFile);
 
             logger.info("---BENCHMARK ENDED--- on " + runtime + " seconds with " + throughput + " throughput "
                     + " node : " + InetAddress.getLocalHost().getHostName());
