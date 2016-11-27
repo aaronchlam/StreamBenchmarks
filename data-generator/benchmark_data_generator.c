@@ -40,7 +40,6 @@ char ** buffer;
 int port;
 unsigned long logInterval;
 sem_t sem;
-char * statsPath;
 unsigned long sleepTime;
 int socket_desc , client_sock , c , read_size;
 struct sockaddr_in server , client;
@@ -151,12 +150,6 @@ void *produce( void  )
               if(queue_size > sustainability_limit){
                 if(backpressure_tolerance_iteration == 0 || queue_size > backpressure_limit ){
                      printf("Cannot sustain the input data rate \n");
-                     char hostname[1024];
-                     gethostname(hostname, 1024);
-                     sprintf(consumerFP, "%sERROR-%s-%d.csv",statsPath,hostname,port  );
-                     consumerFile = fopen(consumerFP, "w");
-                     fprintf(consumerFile, "System cannot sustain the data input rate\n");
-                     fclose(consumerFile);
                      exit(0);
                 }
                 else {
@@ -192,10 +185,6 @@ void *produce( void  )
     }
     logIndex++;
     producerLog[logIndex] = NULL;
-    for(int i = 0;producerLog[i]!=NULL ;i++){
-        fprintf(producerFile, "%llu, %lu, %lu \n", producerLog[i]->key, producerLog[i]->value, producerLog[i]->throughput);
-    }
-    fclose(producerFile); 
 
 }
 
@@ -245,10 +234,6 @@ void *consume( void  )
     logIndex++;
     consumerLog[logIndex]=NULL;
 
-    for(int i = 0; consumerLog[i]!=NULL;i++){
-	     fprintf(consumerFile, "%llu, %lu, %lu \n", consumerLog[i]->key, consumerLog[i]->value, consumerLog[i]->throughput);  
-    }
-    fclose(consumerFile);
  
     printf("All data read by system \n");
     msleep(1000 * 1000);
@@ -296,39 +281,20 @@ void fireServerSocket(void){
 
 
 
-void initLogFiles(void){
-     producerFP = malloc(2000);
-    char hostname[1024];
-    gethostname(hostname, 1024);
-    sprintf(producerFP, "%sproducer-%s-%d.csv",statsPath,hostname,port  );
- 
-
-    consumerFP = malloc(2000);
-    sprintf(consumerFP, "%sconsumer-%s-%d.csv",statsPath,hostname,port  );
-    
-    producerFile = fopen(producerFP, "w");
-    consumerFile = fopen(consumerFP, "w");
-    if (consumerFile == NULL || producerFile == NULL)  {
-         printf("Error opening file!\n");
-         exit(1);
-    } 
-}
 
 int main(int argc , char *argv[])
 {
 
-    statsPath = malloc(1000);
     pthread_t producer, consumer;
     sscanf(argv[1],"%lf",&partitionSize);
     sscanf(argv[2],"%lu",&benchmarkCount); 
     sscanf(argv[4],"%d",&port); 
     sscanf(argv[3],"%lu",&logInterval);
-    statsPath = argv[5];
-    sscanf(argv[6],"%lu",&sleepTime);
-    sscanf(argv[7],"%d",&nonSleepCount);
-    sscanf(argv[8],"%d",&sustainability_limit);
-    sscanf(argv[9],"%d",&backpressure_limit);
-    sscanf(argv[10],"%lu",&selectivity);
+    sscanf(argv[5],"%lu",&sleepTime);
+    sscanf(argv[6],"%d",&nonSleepCount);
+    sscanf(argv[7],"%d",&sustainability_limit);
+    sscanf(argv[8],"%d",&backpressure_limit);
+    sscanf(argv[9],"%lu",&selectivity);
     initializeGeoList( partitionSize);
     int seed = 123;
     srand(seed);
@@ -336,7 +302,7 @@ int main(int argc , char *argv[])
     buffer = malloc (benchmarkCount * sizeof(*buffer));   
     
     fireServerSocket(); 
-    initLogFiles();
+    //initLogFiles();
     pthread_create( &producer, NULL, produce, NULL);
     pthread_create( &consumer, NULL, consume, NULL);
 
