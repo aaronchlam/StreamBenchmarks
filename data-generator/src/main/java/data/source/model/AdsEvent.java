@@ -7,6 +7,7 @@ package data.source.model;
 import org.fluttercode.datafactory.impl.DataFactory;
 import org.json.JSONObject;
 
+import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -14,11 +15,9 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * Created by jeka01 on 31/08/16.
  */
-public class AdsEvent {
+public class AdsEvent implements Serializable {
 
-    public AdsEvent(boolean isRandomGeo, boolean putTs, Double partition) {
-        this.isRandomGeo = isRandomGeo;
-        this.putTs = putTs;
+    public AdsEvent( Double partition) {
         if (partition > 0){
             geoList = Arrays.copyOfRange(geoListAll, 0, (int) (geoListAll.length * partition));
         } else{
@@ -26,8 +25,6 @@ public class AdsEvent {
         }
 
     }
-    private boolean isRandomGeo;
-    private boolean putTs;
 
     private int geoIndex = 0;
     private Random rand = new Random(93285L);
@@ -44,13 +41,9 @@ public class AdsEvent {
 
         //geo
         String geo = null;
-        if (isRandomGeo) {
-            geo = geoList[rand.nextInt(geoList.length-1)];
-        } else {
             geoIndex = geoIndex % geoList.length;
             geo = geoList[geoIndex];
             geoIndex++;
-        }
 
         //price
         float minX = 5.0f;
@@ -58,13 +51,9 @@ public class AdsEvent {
         float finalX = rand.nextFloat() * (maxX - minX) + minX;
         String price = Float.toString(finalX);
 
-        String json = "{ \"geo\":\"" + geo + "\",\"price\":\"" + price + "\"";
+        String json = "{ \"key\":\"" + geo + "\",\"value\":\"" + price + "\"";
 
-        if (putTs){
             return json +  ",\"ts\": \"" + System.currentTimeMillis() + "\"}";
-        } else {
-            return json + "}";
-        }
     }
 
 
