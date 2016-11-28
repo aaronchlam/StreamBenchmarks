@@ -11,6 +11,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Map;
+import org.apache.storm.utils.Utils;
 
 /**
  * Created by jeka01 on 03/09/16.
@@ -44,8 +45,15 @@ public class SocketReceiver extends BaseRichSpout {
 
     public void nextTuple(){
         try {
-            String jsonStr = in.readLine();
-            collector.emit(new Values(jsonStr));
+            String jsonStr  = in.readLine();
+	 //  if( jsonStr == null ){	
+	   //   collector.emit(new Values("null"));
+	  // }
+	   // else {
+		
+	      collector.emit(new Values(jsonStr));
+	  // } 
+
         } catch (IOException e) {
             e.printStackTrace();
         }
