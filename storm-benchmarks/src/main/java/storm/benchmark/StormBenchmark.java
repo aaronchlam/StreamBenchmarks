@@ -50,7 +50,7 @@ public class StormBenchmark {
 
         @Override
         public void execute(Tuple tuple) {
-            
+
             JSONObject obj = new JSONObject(tuple.getString(0));
             String geo = obj.getString("key");
             Double price = obj.getDouble("value");
@@ -59,8 +59,8 @@ public class StormBenchmark {
                     geo,
                     ts,
                     price
-            ));
-            _collector.ack(tuple);
+          	  ));
+             _collector.ack(tuple);
         }
 
         @Override
@@ -195,7 +195,7 @@ public class StormBenchmark {
     private static StormTopology windowedAggregation(TopologyBuilder builder){
         for (String host: CommonConfig.DATASOURCE_HOSTS()){
             for(Integer port: CommonConfig.DATASOURCE_PORTS()){
-                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),CommonConfig.PARALLELISM());
+                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),1);
             }
         }
         BoltDeclarer bolt= builder.setBolt("event_deserializer", new DeserializeBolt(), CommonConfig.PARALLELISM());

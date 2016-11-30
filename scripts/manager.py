@@ -9,6 +9,7 @@ import shutil
 import glob
 import yaml
 import socket
+
 conf_file='/share/hadoop/jkarimov/workDir/StreamBenchmarks/conf/benchmarkConf.yaml'
 
 with open(conf_file, 'r') as f:
@@ -23,7 +24,7 @@ def stop_flink():
         sp.call([ common_config['flink_home'] + "bin/stop-cluster.sh"])
 
 def flink_benchmark():
-        clear_dir( common_config['flink.output'] )
+        clear_dir( common_config['project_home']  + "output/flink/")
         sp.call([ common_config['flink_home'] + "bin/flink" , "run", common_config['project_home'] + "flink-benchmarks/target/flink-benchmarks-0.1.0.jar", "--confPath",conf_file])     
 
 def start_spark():
@@ -32,17 +33,15 @@ def stop_spark():
         sp.call([ common_config['spark_home'] + "sbin/stop-all.sh" ])
 
 def clear_dir(path):
-	cmd = '\' rm -rf ' + path + '* \''
-	sp.call(  'rm -rf ' + path + '*' , shell=True )
-	print("deleted current node")
-	time.sleep(2)        
-	for host in common_config['slaves']:
-             sp.call (  "ssh " + host.strip() + '\'' + cmd + '\''    , shell=True )
-	     print('deleted ' + host )
-             time.sleep(2)
+        filelist = [ f for f in os.listdir(path) ]
+        for f in filelist:
+                try:
+                        shutil.rmtree(path+f )
+                except:
+                        os.remove(path+f)
 
 def spark_benchmark():
-        clear_dir( common_config['spark.output.dir']  )
+        clear_dir( common_config['project_home']  + "output/spark/")
         sp.call([ common_config['spark_home']  + 'bin/spark-submit' ,'--class' ,'spark.benchmark.SparkBenchmark', common_config['project_home']  + 'spark-benchmarks/target/spark-benchmarks-0.1.0.jar' , conf_file])
 
 def start_zookeeper():
@@ -89,14 +88,14 @@ def stop_process_all(name):
                 time.sleep(1)
 
 def storm_benchmark():
-        clear_dir( common_config['storm.output'])
+        clear_dir( common_config['project_home']  + "output/storm/")
         sp.call([common_config['storm_home'] + "bin/storm", "jar", common_config['project_home']  + 'storm-benchmarks/target/storm-benchmarks-0.1.0.jar' , 'storm.benchmark.StormBenchmark', conf_file,'cluster','topologyName'])
 
 def merge_output_files():
         sp.call(["cat", common_config['spark.output']  + '*/*', '>','spark.csv'])
 
 def concat_files_in_dir(input_dir, output_dir):
-	read_files = glob.glob(input_dir )
+        read_files = glob.glob(input_dir )
 
         with open(output_dir, "wb") as outfile:
                 for f in read_files:
@@ -125,17 +124,6 @@ def start_vmstats():
 def stop_vmstats():
         stop_process_all('vmstat')
 #parse_conf_file()
-
-def cp_to_shared(in_path, out_path):
-	cmd1 = '\' rm -r ' + out_path + '* \'' 
-	cmd2 = '\' cp -r ' + in_path + '* ' + out_path + '\''
-	sp.call ( '\'' + cmd1 + '\'',shell=True  )
-	time.sleep(1)
-	for host in common_config['slaves']:
-		sp.call ( "ssh " + host.strip() +   ' \'' + cmd2 + '\'',shell=True  )
-		print('cp done on ' + host)
-		time.sleep(1)		
-
 
 if(len(sys.argv[1:]) == 1):
         arg = sys.argv[1]
@@ -166,7 +154,6 @@ if(len(sys.argv[1:]) == 1):
         elif(arg == "concat-storm"):
                  concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/storm/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/storm_temp.csv')
         elif(arg == "concat-flink"):
-		cp_to_shared( common_config['flink.output'], '/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/flink/'  )
                 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/flink/*/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/flink_temp.csv')
         elif(arg == "start-datagenerators"):
                 start_data_generators()
