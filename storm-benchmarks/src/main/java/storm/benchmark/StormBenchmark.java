@@ -50,6 +50,7 @@ public class StormBenchmark {
 
         @Override
         public void execute(Tuple tuple) {
+            
             JSONObject obj = new JSONObject(tuple.getString(0));
             String geo = obj.getString("key");
             Double price = obj.getDouble("value");
@@ -230,34 +231,70 @@ public class StormBenchmark {
     }
 
 
+    public static class SlidingWindowJoinBolt extends BaseWindowedBolt {
 
-//    private static StormTopology windowedJoin(TopologyBuilder builder){
-//        for (String host: CommonConfig.DATASOURCE_HOSTS()){
-//            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
-//                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),CommonConfig.PARALLELISM());
-//            }
-//        }
-//        BoltDeclarer joinBolt1= builder.setBolt("event_deserializer1", new DeserializeBolt(), CommonConfig.PARALLELISM());
-//        BoltDeclarer joinBolt2= builder.setBolt("event_deserializer2", new DeserializeBolt(), CommonConfig.PARALLELISM());
-//
-//        int i = 0;
-//        for (String host: CommonConfig.DATASOURCE_HOSTS()){
-//            if (i % 2 == 0){
-//                joinBolt1 = joinBolt1.shuffleGrouping("source"+host);
-//            } else {
-//                joinBolt2 = joinBolt2.shuffleGrouping("source"+host);
-//            }
-//            i++;
-//        }
-//        builder.setBolt("sliding_join", new SlidingWindowJoinBolt()
-//                .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS), new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS)) ,CommonConfig.PARALLELISM())
-//                .partialKeyGrouping("event_deserializer1", new Fields("geo") )
-//                .partialKeyGrouping("event_deserializer2", new Fields("geo") );
-//        builder.setBolt("event_filter", new FinalTSBolt(), CommonConfig.PARALLELISM()).shuffleGrouping("sliding_join");
-//        builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
-//        return builder.createTopology();
-//
-//    }
+        private OutputCollector collector;
+
+        private String probeStream;
+        public SlidingWindowJoinBolt(String probeStream){
+            this.probeStream = probeStream;
+        }
+
+        @Override
+        public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
+            this.collector = collector;
+        }
+
+        @Override
+        public void execute(TupleWindow inputWindow) {
+            System.out.println("------------------------------");
+            System.out.println("------------------------------");
+            for (Tuple t : inputWindow.getNew()){
+                System.out.println( t.getSourceGlobalStreamId().get_componentId() );
+
+            }
+
+        }
+        @Override
+        public void declareOutputFields(OutputFieldsDeclarer declarer) {
+            declarer.declare(new Fields("geo","ts","avg_price", "window_size"));
+        }
+
+    }
+
+
+
+    private static StormTopology windowedJoin(TopologyBuilder builder){
+        for (String host: CommonConfig.DATASOURCE_HOSTS()){
+            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
+                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),CommonConfig.PARALLELISM());
+            }
+        }
+        BoltDeclarer joinBolt1= builder.setBolt("event_deserializer1", new DeserializeBolt(), CommonConfig.PARALLELISM());
+        BoltDeclarer joinBolt2= builder.setBolt("event_deserializer2", new DeserializeBolt(), CommonConfig.PARALLELISM());
+
+        int i = 0;
+        for (String host: CommonConfig.DATASOURCE_HOSTS()) {
+            for (Integer port : CommonConfig.DATASOURCE_PORTS()) {
+                if (i % 2 == 0){
+                    joinBolt1 = joinBolt1.shuffleGrouping("source"+host + "" + port);
+                } else {
+                    joinBolt2 = joinBolt2.shuffleGrouping("source"+host + "" + port);
+                }
+                i++;
+            }
+        }
+
+        builder.setBolt("sliding_join", new SlidingWindowJoinBolt()
+                .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS),
+                        new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS)),CommonConfig.PARALLELISM())
+                .fieldsGrouping("event_deserializer1", new Fields("geo") )
+                .fieldsGrouping("event_deserializer2", new Fields("geo") );
+       // builder.setBolt("event_filter", new FinalTSBolt(), CommonConfig.PARALLELISM()).shuffleGrouping("sliding_join");
+        //builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
+        return builder.createTopology();
+
+    }
 
 
     public static void main(String[] args) throws Exception {
@@ -271,15 +308,12 @@ public class StormBenchmark {
         if(CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.AGGREGATION_USECASE)){
             topology = windowedAggregation(builder);
         } else if(CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.JOIN_USECASE)){
-            return;//topology = windowedJoin(builder);
+            topology = windowedJoin(builder);
         } else if (CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.DUMMY_CONSUMER)){
             topology = dummyConsumer(builder);
         }
 
         Config conf = new Config();
-        conf.put(Config.TOPOLOGY_TRANSFER_BUFFER_SIZE,            32);
-        conf.put(Config.TOPOLOGY_EXECUTOR_RECEIVE_BUFFER_SIZE, 16384);
-        conf.put(Config.TOPOLOGY_EXECUTOR_SEND_BUFFER_SIZE,    16384);
 
         if (runningMode.equals("cluster")) {
 //            conf.setNumWorkers(CommonConfig.STORM_WORKERS());
