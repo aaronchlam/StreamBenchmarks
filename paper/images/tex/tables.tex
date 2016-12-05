@@ -1,0 +1,54 @@
+    \begin{table}
+        \begin{tabular}{lllll}\toprule
+            &\textbf{2 Node}  & \textbf{4 Node} & \textbf{8 Node}\\\midrule
+            Storm & 408K & 696K & XXX  \\
+            Spark & 379K & 642K & 912K  \\
+            Flink & 1230K & *1260K & *1260K \\
+            \\\bottomrule
+        \end{tabular}
+        \caption{Sustainable throughput for windowed aggregations}\label{Tab1}
+    \end{table} 
+
+
+
+    \begin{table}
+        \begin{tabular}{lllll}\toprule
+            &\textbf{2 Node}  & \textbf{4 Node} & \textbf{8 Node}\\\midrule
+            Storm & 1424ms & 2043ms & XXX \\
+            Storm(90\%) & 1109ms & 1669ms & XXX \\
+            Spark & 3759ms & 4138ms & 3152ms\\
+            Spark(90\%) & 3418ms & 2846ms & 2798ms\\
+            Flink & 576ms & 259ms & 243ms \\
+            Flink(90\%) & 299ms & -  & - \\
+            \\\bottomrule
+        \end{tabular}
+        \caption{Average Latency for windowed aggregations}\label{Tab1}
+    \end{table} 
+
+
+    \begin{table}
+        \begin{tabular}{lllll}\toprule
+            &\textbf{2 Node}  & \textbf{4 Node} & \textbf{8 Node}\\\midrule
+            Storm & xxx & xxx & XXX  \\
+            Spark & 365K & 632K & 947K  \\
+            Flink & 851K & 1128K & *1260K \\
+            \\\bottomrule
+        \end{tabular}
+        \caption{Sustainable throughput for windowed joins}\label{Tab1}
+    \end{table} 
+
+
+
+    \begin{table}
+        \begin{tabular}{lllll}\toprule
+            &\textbf{2 Node}  & \textbf{4 Node} & \textbf{8 Node}\\\midrule
+            Storm & 1424ms & 2043ms & XXX \\
+            Storm(90\%) & 1109ms & 1669ms & XXX \\
+            Spark & 8417ms & 7823ms & 7590ms\\
+            Spark(90\%) & 7538ms & 5825ms & 6015ms\\
+            Flink & 4825ms & 4255ms & *3748ms \\
+            Flink(90\%) & 3872ms & 3285ms  & - \\
+            \\\bottomrule
+        \end{tabular}
+        \caption{Average Latency for windowed joins}\label{Tab1}
+    \end{table} 
