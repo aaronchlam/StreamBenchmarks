@@ -332,7 +332,6 @@ public class StormBenchmark {
                     HashMap<Long, Integer> hm = probeMap.get(key);
                     for (Map.Entry<Long, Integer> entry : hm.entrySet()) {
                         for (int i = 0; i < entry.getValue(); i++){
-                            System.out.println(key + " " + t.getLongByField("ts") );
                             collector.emit(new Values(  Math.max( t.getLongByField("ts"), entry.getKey()))   );
                         }
                     }
