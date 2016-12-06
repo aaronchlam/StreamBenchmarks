@@ -1,6 +1,7 @@
 package storm.benchmark;
 
 import benchmark.common.CommonConfig;
+import org.apache.hadoop.util.hash.Hash;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
@@ -152,7 +153,8 @@ public class StormBenchmark {
             for (Tuple tuple : expiredTuples) {
                 String key = tuple.getString(0);
                 sumState.put(key, sumState.get(key )  -  tuple.getDouble(2)    ) ;
-                sizeState.put(key, sizeState.getOrDefault(key, 0  )  -  1    ) ;
+                Integer size = sizeState.getOrDefault(key, 0  );
+                sizeState.put(key, Math.max( 0 ,  size - 1    )) ;
             }
 
             for (Map.Entry<String, Double> entry : sumState.entrySet()) {
@@ -279,7 +281,7 @@ public class StormBenchmark {
     public static class SlidingWindowJoinBolt extends BaseWindowedBolt {
 
         private OutputCollector collector;
-        private HashMap<String, Set<Long>> probeMap = new HashMap<>();
+        private HashMap<String, HashMap<Long, Integer>> probeMap = new HashMap<>();
         private String probeStreamID;
         public SlidingWindowJoinBolt(String probeStream){
             this.probeStreamID = probeStream;
@@ -298,21 +300,27 @@ public class StormBenchmark {
             for (Tuple t : inputWindow.getExpired() ){
                 if (t.getSourceGlobalStreamId().get_componentId().equals(probeStreamID)){
                     String key = t.getStringByField("group");
-                    Set s = probeMap.get(key);
-                    s.remove(t.getLongByField("ts"));
-                    if (s.size() == 0){
+                    HashMap<Long, Integer> hm = probeMap.get(key);
+                    Integer count = hm.get(t.getLongByField("ts"));
+                    count --;
+                    if (count <= 0){
+                        hm.remove(t.getLongByField("ts"));
+                    } else {
+                        hm.put(t.getLongByField("ts"), count);
+                    }
+                    if (hm.size() == 0) {
                         probeMap.remove(key);
                     } else {
-                        probeMap.put(key, s);
+                        probeMap.put(key, hm);
                     }
                 }
             }
             for (Tuple t: inputWindow.getNew()){
                 if (t.getSourceGlobalStreamId().get_componentId().equals(probeStreamID)){
                     String key = t.getStringByField("group");
-                    Set s = probeMap.getOrDefault(key, new HashSet<>());
-                    s.add(t.getLongByField("ts"));
-                    probeMap.put(key,s);
+                    HashMap<Long, Integer> hm = probeMap.getOrDefault(key, new HashMap<Long, Integer>());
+                    hm.put(t.getLongByField("ts"), hm.getOrDefault(t.getLongByField("ts"), 0) + 1   );
+                    probeMap.put(key,hm);
                 } else {
                     newTestTuples.add(t);
                 }
@@ -321,9 +329,12 @@ public class StormBenchmark {
             for (Tuple t: newTestTuples){
                 String key = t.getStringByField("group");
                 if (probeMap.containsKey(key)){
-                    Set<Long> s = probeMap.get(key);
-                    for (Long ts : s){
-                        collector.emit(new Values(  Math.max( t.getLongByField("ts"), ts))   );
+                    HashMap<Long, Integer> hm = probeMap.get(key);
+                    for (Map.Entry<Long, Integer> entry : hm.entrySet()) {
+                        for (int i = 0; i < entry.getValue(); i++){
+                            System.out.println(key + " " + t.getLongByField("ts") );
+                            collector.emit(new Values(  Math.max( t.getLongByField("ts"), entry.getKey()))   );
+                        }
                     }
                 }
             }
