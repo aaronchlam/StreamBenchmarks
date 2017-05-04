@@ -61,10 +61,10 @@ object SparkBenchmark {
       }
     }
     val windowedStream1 = joinSource1.map(s => deserialize(s))
-      .window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
+      .window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE())).cache()
 
     val windowedStream2 = joinSource2.map(s => deserialize(s))
-      .window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
+      .window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE())).cache()
 
 
     val joinedStream = windowedStream1.join(windowedStream2).map(t => {
@@ -73,7 +73,7 @@ object SparkBenchmark {
       val startTs = if (t._2._1._1 == ts) t._2._1._2 else t._2._2._2
       (latency, ts, startTs)
     })
-      .filter(x => x._2 % CommonConfig.JOIN_FILTER_FACTOR() == 0)
+      .filter(x => x._2 % CommonConfig.JOIN_FILTER_FACTOR() == 0).cache()
 
     joinedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
 
