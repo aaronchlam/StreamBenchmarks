@@ -99,7 +99,7 @@ object SparkBenchmark {
       val ts: Long =  obj.getLong("ts") ;
 
       ((geo), (ts, price, 1, 1))
-    })
+    }).cache()
 
 
     val windowedStream = if (CommonConfig.SPARK_WINDOW_USE()) {
@@ -110,7 +110,7 @@ object SparkBenchmark {
           val ts: Long = Math.max(t1._1, t2._1)
           val elementCount = t1._4 + t2._4
           (ts, avgPrice, avgCount, elementCount)
-        })
+        }).cache()
     } else {
       keyedStream
         .reduceByKey((t1, t2) => {
@@ -119,7 +119,7 @@ object SparkBenchmark {
           val ts: Long = Math.max(t1._1, t2._1)
           val elementCount = t1._4 + t2._4
           (ts, avgPrice, avgCount, elementCount)
-        })
+        }).cache()
     }
 
 
