@@ -67,9 +67,13 @@ object SparkBenchmark {
       .window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
 
 
-    val joinedStream = windowedStream1.join(windowedStream2).map(t => (
-                                                                      System.currentTimeMillis() - Math.max(t._2._1,t._2._2),
-                                                                      Math.max(t._2._1,t._2._2))).filter(x => x._2 % CommonConfig.JOIN_FILTER_FACTOR() == 0)
+    val joinedStream = windowedStream1.join(windowedStream2).map(t => {
+      val latency = System.currentTimeMillis() - Math.max(t._2._1._1, t._2._2._1);
+      val ts = Math.max(t._2._1._1, t._2._2._1);
+      val startTs = if (t._2._1._1 == ts) t._2._1._2 else t._2._2._2
+      (latency, ts, startTs)
+    })
+      .filter(x => x._2 % CommonConfig.JOIN_FILTER_FACTOR() == 0)
 
     joinedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
 
@@ -80,7 +84,7 @@ object SparkBenchmark {
     val price: Double = obj.getDouble("value")
     val geo: String = obj.getString("key")
     val ts: Long =  obj.getLong("ts")
-    ((geo), (ts))
+    ((geo), (ts, System.currentTimeMillis()))
   }
 
   def keyedWindowedAggregationBenchmark(ssc: StreamingContext) = {
@@ -98,7 +102,7 @@ object SparkBenchmark {
       val geo: String = obj.getString("key")
       val ts: Long =  obj.getLong("ts") ;
 
-      ((geo), (ts, price, 1, 1))
+      ((geo), (ts, price, 1, 1, System.currentTimeMillis()))
     }).cache()
 
 
@@ -109,7 +113,8 @@ object SparkBenchmark {
           val avgCount = t1._3 + t2._3;
           val ts: Long = Math.max(t1._1, t2._1)
           val elementCount = t1._4 + t2._4
-          (ts, avgPrice, avgCount, elementCount)
+          val startTS = if (t1._1 == ts) t1._5 else t2._5
+          (ts, avgPrice, avgCount, elementCount, startTS)
         }).cache()
     } else {
       keyedStream
@@ -118,18 +123,19 @@ object SparkBenchmark {
           val avgCount = t1._3 + t2._3;
           val ts: Long = Math.max(t1._1, t2._1)
           val elementCount = t1._4 + t2._4
-          (ts, avgPrice, avgCount, elementCount)
+          val startTS = if (t1._1 == ts) t1._5 else t2._5
+          (ts, avgPrice, avgCount, elementCount, startTS)
         }).cache()
     }
 
 
 
-    val mappedStream = windowedStream.map(tuple => new Tuple5[String, Long, Double, Int, Long](
+    val mappedStream = windowedStream.map(tuple => new Tuple6[String, Long, Double, Int, Long, Long](
                                                           tuple._1,
                                                           System.currentTimeMillis() - tuple._2._1,
                                                           tuple._2._2,
                                                           tuple._2._4,
-                                                          tuple._2._1))
+                                                          tuple._2._1, tuple._2._5))
 
     mappedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
     // resultStream.print();

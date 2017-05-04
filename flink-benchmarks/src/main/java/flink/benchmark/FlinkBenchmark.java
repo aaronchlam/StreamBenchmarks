@@ -87,14 +87,14 @@ public class FlinkBenchmark {
 
 
     private static void windowedJoin(StreamExecutionEnvironment env){
-        class Deserializer implements MapFunction<String, Tuple3<String, Long, Double>>{
+        class Deserializer implements MapFunction<String, Tuple4<String, Long, Double, Long>>{
             @Override
-            public Tuple3<String, Long, Double> map(String s) throws Exception {
+            public Tuple4<String, Long, Double, Long> map(String s) throws Exception {
                 JSONObject obj = new JSONObject(s);
                 String geo = obj.getString("key");
                 Double price = obj.getDouble("value");
                 Long ts =  obj.getLong("ts");
-                return new Tuple3<String, Long, Double>(geo, ts , price);
+                return new Tuple4<String, Long, Double, Long>(geo, ts , price, System.currentTimeMillis());
             }
 
         }
@@ -113,38 +113,40 @@ public class FlinkBenchmark {
             }
         }
 
-        DataStream<Tuple3<String, Long, Double>> projectedStream1 = joinStream1.map(new Deserializer());
-        DataStream<Tuple3<String, Long, Double>> projectedStream2 = joinStream2.map(new Deserializer());
+        DataStream<Tuple4<String, Long, Double, Long>> projectedStream1 = joinStream1.map(new Deserializer());
+        DataStream<Tuple4<String, Long, Double, Long>> projectedStream2 = joinStream2.map(new Deserializer());
 
-        DataStream< Long> joinedStream = projectedStream1.join(projectedStream2).
-                where(new KeySelector<Tuple3<String, Long, Double>, String>() {
+        DataStream< Tuple2<Long, Long>> joinedStream = projectedStream1.join(projectedStream2).
+                where(new KeySelector<Tuple4<String, Long, Double, Long>, String>() {
 
                     @Override
-                    public String getKey(Tuple3<String, Long, Double> tuple) throws Exception {
+                    public String getKey(Tuple4<String, Long, Double, Long> tuple) throws Exception {
                         return tuple.f0;
                     }
                 }).
-                equalTo(new KeySelector<Tuple3<String, Long, Double>, String>() {
+                equalTo(new KeySelector<Tuple4<String, Long, Double, Long>, String>() {
                     @Override
-                    public String getKey(Tuple3<String, Long, Double> tuple) throws Exception {
+                    public String getKey(Tuple4<String, Long, Double, Long> tuple) throws Exception {
                         return tuple.f0;
                     }
                 }).
                 window(SlidingProcessingTimeWindows.of(Time.milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Time.milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE())))
-                .apply(new JoinFunction<Tuple3<String, Long, Double>, Tuple3<String, Long, Double>, Long>() {
+                .apply(new JoinFunction<Tuple4<String, Long, Double, Long>, Tuple4<String, Long, Double, Long>, Tuple2<Long, Long>>() {
 
                     @Override
-                    public Long join(Tuple3<String, Long, Double> t1, Tuple3<String, Long, Double> t2) throws Exception {
-                        return (Math.max(t1.f1,t2.f1));
+                    public Tuple2<Long, Long> join(Tuple4<String, Long, Double, Long> t1, Tuple4<String, Long, Double, Long> t2) throws Exception {
+                        Long latency = Math.max(t1.f1,t2.f1);
+                        Long startTS =  latency == t1.f1 ? t1.f3 : t2.f3;
+                        return new Tuple2<>(latency, startTS);
                     }
                 });
 
 
-        DataStream<Tuple2<Long, Long>> resultingStream = joinedStream.filter(x -> x % CommonConfig.JOIN_FILTER_FACTOR() == 0)
-                .map(new MapFunction<Long, Tuple2<Long, Long>>() {
+        DataStream<Tuple3<Long, Long, Long>> resultingStream = joinedStream.filter(x -> x.f1 % CommonConfig.JOIN_FILTER_FACTOR() == 0)
+                .map(new MapFunction<Tuple2<Long, Long>, Tuple3<Long, Long, Long>>() {
             @Override
-            public Tuple2<Long, Long> map(Long l) throws Exception {
-                return new Tuple2< Long, Long>( System.currentTimeMillis()  - l, l);
+            public Tuple3<Long, Long, Long> map(Tuple2<Long, Long> l) throws Exception {
+                return new Tuple3< Long, Long, Long>( System.currentTimeMillis()  - l.f0, l.f0, l.f1);
             }
         });
 
@@ -169,35 +171,36 @@ public class FlinkBenchmark {
             }
         }
 
-        DataStream<Tuple5<String, Long, Double, Integer,Integer>> messageStream = socketSource.map(new MapFunction<String, Tuple5<String, Long, Double, Integer,Integer>>() {
+        DataStream<Tuple6<String, Long, Double, Integer,Integer, Long>> messageStream = socketSource.map(new MapFunction<String, Tuple6<String, Long, Double, Integer,Integer, Long>>() {
                     @Override
-                    public Tuple5<String, Long, Double, Integer,Integer> map(String s) throws Exception {
+                    public Tuple6<String, Long, Double, Integer,Integer, Long> map(String s) throws Exception {
                         JSONObject obj = new JSONObject(s);
                         String geo = obj.getString("key");
                         Double price = obj.getDouble("value");
                         Long ts =  obj.getLong("ts");
-                        return new Tuple5<String, Long, Double, Integer,Integer>(geo, ts , price, 1 ,1);
+                        return new Tuple6<String, Long, Double, Integer,Integer, Long>(geo, ts , price, 1 ,1, System.currentTimeMillis());
                     }
                 });
 
-        DataStream<Tuple5<String, Long, Double, Integer,Integer>> aggregatedStream = messageStream.keyBy(0)
+        DataStream<Tuple6<String, Long, Double, Integer,Integer, Long>> aggregatedStream = messageStream.keyBy(0)
                 .timeWindow(Time.milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Time.milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE())).
-                        reduce(new ReduceFunction<Tuple5<String, Long, Double, Integer,Integer>>() {
+                        reduce(new ReduceFunction<Tuple6<String, Long, Double, Integer,Integer, Long>>() {
                             @Override
-                            public Tuple5<String, Long, Double, Integer,Integer> reduce(Tuple5<String, Long, Double, Integer,Integer> t1, Tuple5<String, Long, Double, Integer,Integer> t2) throws Exception {
+                            public Tuple6<String, Long, Double, Integer,Integer, Long> reduce(Tuple6<String, Long, Double, Integer,Integer, Long> t1, Tuple6<String, Long, Double, Integer,Integer, Long> t2) throws Exception {
                                 Double avgPrice = (t1.f3 * t1.f2 + t2.f3 * t2.f2) / t1.f3 + t2.f3;
                                 Integer avgCount = t1.f3 + t2.f3;
                                 Integer windowCount = t1.f4 + t2.f4;
                                 Long ts = Math.max(t1.f1, t2.f1);
-                                return new Tuple5<String, Long, Double, Integer,Integer>(t1.f0, ts, avgPrice, avgCount,windowCount);
+                                Long startTS = ts == t1.f1 ? t1.f5 : t2.f5;
+                                return new Tuple6<String, Long, Double, Integer,Integer, Long>(t1.f0, ts, avgPrice, avgCount,windowCount, startTS);
                             }
                         });
 
 
-        DataStream<Tuple5<String, Long, Double,Integer,Long>> mappedStream = aggregatedStream.map(new MapFunction<Tuple5<String, Long, Double, Integer, Integer>, Tuple5<String, Long, Double, Integer, Long>>() {
+        DataStream<Tuple6<String, Long, Double,Integer,Long, Long>> mappedStream = aggregatedStream.map(new MapFunction<Tuple6<String, Long, Double, Integer, Integer, Long>, Tuple6<String, Long, Double, Integer, Long, Long>>() {
             @Override
-            public Tuple5<String, Long, Double, Integer, Long> map(Tuple5<String, Long, Double, Integer, Integer> t1) throws Exception {
-                return new Tuple5<String, Long, Double,Integer,Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2,t1.f4, t1.f1);
+            public Tuple6<String, Long, Double,Integer,Long, Long> map(Tuple6<String, Long, Double, Integer, Integer, Long> t1) throws Exception {
+                return new Tuple6<String, Long, Double,Integer,Long, Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2,t1.f4, t1.f1, t1.f5);
             }
         });
 
