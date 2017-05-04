@@ -121,13 +121,13 @@ public class FlinkBenchmark {
 
                     @Override
                     public String getKey(Tuple3<String, Long, Double> tuple) throws Exception {
-                        return tuple.f0 + tuple.f2;
+                        return tuple.f0;
                     }
                 }).
                 equalTo(new KeySelector<Tuple3<String, Long, Double>, String>() {
                     @Override
                     public String getKey(Tuple3<String, Long, Double> tuple) throws Exception {
-                        return tuple.f0 + tuple.f2;
+                        return tuple.f0;
                     }
                 }).
                 window(SlidingProcessingTimeWindows.of(Time.milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Time.milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE())))
@@ -140,7 +140,8 @@ public class FlinkBenchmark {
                 });
 
 
-        DataStream<Tuple2<Long, Long>> resultingStream = joinedStream.map(new MapFunction<Long, Tuple2<Long, Long>>() {
+        DataStream<Tuple2<Long, Long>> resultingStream = joinedStream.filter(x -> x % CommonConfig.JOIN_FILTER_FACTOR() == 0)
+                .map(new MapFunction<Long, Tuple2<Long, Long>>() {
             @Override
             public Tuple2<Long, Long> map(Long l) throws Exception {
                 return new Tuple2< Long, Long>( System.currentTimeMillis()  - l, l);

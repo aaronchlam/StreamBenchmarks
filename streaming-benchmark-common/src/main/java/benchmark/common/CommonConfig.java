@@ -41,6 +41,8 @@ public class CommonConfig {
     public static String AGGREGATION_USECASE = "KeyedWindowedAggregation";
     public static String JOIN_USECASE = "WindowedJoin";
     public static String DUMMY_CONSUMER = "DummyConsumer";
+    public static String SPARK_WINDOW_USE = "spark.window.use";
+    public static String JOIN_FILTER_FACTOR = "join.filter.factor";
 
     private static HashMap instance = null;
 
@@ -107,7 +109,8 @@ public class CommonConfig {
     public static String HDFS_URI() {
         return instance.get(HDFS_URI).toString();
     }
-    public static int OUTPUT_SYNC_POLICY_COUNT() {return new Integer(instance.get(OUTPUT_SYNC_POLICY_COUNT).toString());
-    }
+    public static int OUTPUT_SYNC_POLICY_COUNT() {return new Integer(instance.get(OUTPUT_SYNC_POLICY_COUNT).toString());}
+    public static boolean SPARK_WINDOW_USE() {return new Boolean(instance.get(SPARK_WINDOW_USE).toString());}
+    public static int JOIN_FILTER_FACTOR() {return new Integer(instance.get(JOIN_FILTER_FACTOR).toString());}
 
 }

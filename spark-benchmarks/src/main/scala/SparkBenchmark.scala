@@ -69,7 +69,7 @@ object SparkBenchmark {
 
     val joinedStream = windowedStream1.join(windowedStream2).map(t => (
                                                                       System.currentTimeMillis() - Math.max(t._2._1,t._2._2),
-                                                                      Math.max(t._2._1,t._2._2)))
+                                                                      Math.max(t._2._1,t._2._2))).filter(x => x._2 % CommonConfig.JOIN_FILTER_FACTOR() == 0)
 
     joinedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
 
@@ -80,7 +80,7 @@ object SparkBenchmark {
     val price: Double = obj.getDouble("value")
     val geo: String = obj.getString("key")
     val ts: Long =  obj.getLong("ts")
-    ((geo+price), (ts))
+    ((geo), (ts))
   }
 
   def keyedWindowedAggregationBenchmark(ssc: StreamingContext) = {
@@ -101,14 +101,28 @@ object SparkBenchmark {
       ((geo), (ts, price, 1, 1))
     })
 
-    val windowedStream = keyedStream.window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
-      .reduceByKey((t1, t2) => {
-        val avgPrice = (t1._2 * t1._3 + t2._2 * t2._3 ) / (t1._3 + t2._3);
-        val avgCount = t1._3 + t2._3;
-        val ts: Long = Math.max(t1._1, t2._1)
-        val elementCount = t1._4 + t2._4
-        (ts, avgPrice, avgCount, elementCount)
-      })
+
+    val windowedStream = if (CommonConfig.SPARK_WINDOW_USE()) {
+      keyedStream.window(Milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE()))
+        .reduceByKey((t1, t2) => {
+          val avgPrice = (t1._2 * t1._3 + t2._2 * t2._3 ) / (t1._3 + t2._3);
+          val avgCount = t1._3 + t2._3;
+          val ts: Long = Math.max(t1._1, t2._1)
+          val elementCount = t1._4 + t2._4
+          (ts, avgPrice, avgCount, elementCount)
+        })
+    } else {
+      keyedStream
+        .reduceByKey((t1, t2) => {
+          val avgPrice = (t1._2 * t1._3 + t2._2 * t2._3 ) / (t1._3 + t2._3);
+          val avgCount = t1._3 + t2._3;
+          val ts: Long = Math.max(t1._1, t2._1)
+          val elementCount = t1._4 + t2._4
+          (ts, avgPrice, avgCount, elementCount)
+        })
+    }
+
+
 
     val mappedStream = windowedStream.map(tuple => new Tuple5[String, Long, Double, Int, Long](
                                                           tuple._1,
