@@ -1,54 +1,55 @@
-    \begin{table}
+    \begin{table}[H]
         \begin{tabular}{lllll}\toprule
             &\textbf{2 Node}  & \textbf{4 Node} & \textbf{8 Node}\\\midrule
-            Storm & 408K & 696K & XXX  \\
+            Storm & 408K & 696K & 992K  \\
             Spark & 379K & 642K & 912K  \\
-            Flink & 1230K & *1260K & *1260K \\
+            Flink & 1230K & 1260K & 1260K  \\
             \\\bottomrule
         \end{tabular}
-        \caption{Sustainable throughput for windowed aggregations}\label{Tab1}
+        \caption{Sustainable throughput for windowed aggregations. }
+        \label{tab_th_agg}
     \end{table} 
 
 
 
-    \begin{table}
+    \begin{table*}
         \begin{tabular}{lllll}\toprule
             &\textbf{2 Node}  & \textbf{4 Node} & \textbf{8 Node}\\\midrule
-            Storm & 1424ms & 2043ms & XXX \\
-            Storm(90\%) & 1109ms & 1669ms & XXX \\
-            Spark & 3759ms & 4138ms & 3152ms\\
-            Spark(90\%) & 3418ms & 2846ms & 2798ms\\
-            Flink & 576ms & 259ms & 243ms \\
-            Flink(90\%) & 299ms & -  & - \\
+            Storm & 1424, 66, 6297, (913, 1305, 1798) & 2043, 115, 12216, (1090, 1633, 2424) & 2260, 179, 21107, (1225, 1788, 2594) \\
+            Storm(90\%) & 1109, 84, 5752, (701, 1006, 1394) & 1669, 43, 9773, (918, 1377, 2028) & 1914, 182, 11040, (1072, 1565, 2257) \\
+            Spark & 3759, 2537, 9427, (3211, 3473, 3973) & 4138, 1987, 17898, (3136, 3400, 3903) & 3152, 1223, 6946, (2746, 3074, 3495)\\
+            Spark(90\%) & 3418, 2354, 8005, (3149, 3239, 3739) & 2846, 1630, 6925, (2508, 2670, 3035) & 2798, 1702, 5961, (2307, 2665, 3172)\\
+            Flink & 576, 4, 12328, (85, 158, 578) & 259, 4, 5132, (66, 101, 176) & 243, 4, 5528, (56, 85, 120) \\
+            Flink(90\%) & 299, 3, 5826, (73, 119, 394) & 257, 3, 6790, (55, 90, 145)  & 215, 2, 7002, (55, 84, 114) \\
             \\\bottomrule
         \end{tabular}
-        \caption{Average Latency for windowed aggregations}\label{Tab1}
-    \end{table} 
+        \caption{ Latency statistics, avg, min, max and quantiles (25, 50, 75) in milliseconds for windowed aggregations.}
+         \label{tab_lat_agg}
+    \end{table*} 
 
 
-    \begin{table}
+    \begin{table}[H]
         \begin{tabular}{lllll}\toprule
             &\textbf{2 Node}  & \textbf{4 Node} & \textbf{8 Node}\\\midrule
-            Storm & xxx & xxx & XXX  \\
             Spark & 365K & 632K & 947K  \\
-            Flink & 851K & 1128K & *1260K \\
+            Flink & 851K & 1128K & 1190K \\
             \\\bottomrule
         \end{tabular}
-        \caption{Sustainable throughput for windowed joins}\label{Tab1}
+        \caption{Sustainable throughput for windowed joins}
+                 \label{tab_th_join}
     \end{table} 
 
 
 
-    \begin{table}
+    \begin{table*}
         \begin{tabular}{lllll}\toprule
             &\textbf{2 Node}  & \textbf{4 Node} & \textbf{8 Node}\\\midrule
-            Storm & 1424ms & 2043ms & XXX \\
-            Storm(90\%) & 1109ms & 1669ms & XXX \\
-            Spark & 8417ms & 7823ms & 7590ms\\
-            Spark(90\%) & 7538ms & 5825ms & 6015ms\\
-            Flink & 4825ms & 4255ms & *3748ms \\
-            Flink(90\%) & 3872ms & 3285ms  & - \\
+            Spark & 8417, 1376, 27130, (5926, 7892, 10217) & 7823, 2139, 31121, (4963, 6856, 9508) & 7590, 1841, 33976, (4682, 6454, 8964) \\
+            Spark(90\%) & 7538, 2157, 27649, (5641, 7236, 9121) & 5825, 1861, 13956, (4205, 5546, 7227) & 6015, 1721, 19118, (4305, 5691, 7447)\\
+            Flink & 4825, 17, 31271, (2783, 4451, 6430) & 4255, 19, 33328, (2094, 3642, 5613) & 3748, 22, 23628, (1711, 3208, 5150) \\
+            Flink(90\%) & 3872, 19, 15143, (2245, 3599, 5305) & 3285, 16, 12702, (1646, 2992, 4690)  & 3336, 16, 17580, (1597, 3016, 4802) \\
             \\\bottomrule
         \end{tabular}
-        \caption{Average Latency for windowed joins}\label{Tab1}
-    \end{table} 
+        \caption{Latency statistics, avg, min, max and quantiles (25, 50, 75) in milliseconds for windowed joins.}
+                 \label{tab_lat_join}
+    \end{table*} 

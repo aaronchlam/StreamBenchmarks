@@ -9,3 +9,9 @@ logs/
 .idea/
 flink-benchmarks/flink-benchmarks.iml
 spark-benchmarks/spark-benchmarks.iml
+results/
+paper/*.bbl
+paper/*.aux
+paper/*.log
+paper/*.blg
+*.iml

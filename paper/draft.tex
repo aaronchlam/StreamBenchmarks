@@ -14,19 +14,81 @@
 \usepackage{amsmath}
 \usepackage[utf8]{inputenc}
 \usepackage{booktabs,floatrow}
+\usepackage{float}
+\usepackage{helvet}
+\restylefloat{table}
 
 \usepackage[linesnumbered,ruled]{algorithm2e}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{authblk}
+
+%\usepackage{times}
+\usepackage[subtle, tracking=normal]{savetrees}
+
+\usepackage[disable]{todonotes}
+\usepackage{pgfplots}
+\usepackage{filecontents}
+
+
 \SetKwRepeat{Do}{do}{while}%
 
 \newcommand{\argmin}{\operatornamewithlimits{argmin}}
 \newcommand{\argmax}{\operatornamewithlimits{argmax}}
 \newcommand{\para}[1]{\noindent\textbf{#1}}
 
-\begin{document}
 
+
+
+\makeatletter
+\renewcommand\AB@affilsepx{, \protect\Affilfont}
+\makeatother
+
+\begin{document}
+\linespread{0.94}
 % ****************** TITLE ****************************************
 
-\title{ Performance Evaluation of Stream Data Processing Systems}
+\makeatletter
+\renewcommand\AB@authnote[1]{\rlap{\textsuperscript{\normalfont#1}}}
+\renewcommand\Authsep{\ \  \ \ \ \ \ \ \ \ \ }
+\renewcommand\Authands{ \ \ \  \ \ \ \ \ }
+\makeatother
+
+
+
+\title{Benchmarking Distributed Stream Processing Engines [Experiments and Analyses]}
+\renewcommand{\familydefault}{\sfdefault}
+\author[1,4]{\large{Jeyhun Karimov}}
+\author[1,2,5]{\large{ Tilmann Rabl}}
+\author[1,5]{\large{ Asterios Katsifodimos}}
+\author[2,6]{\large{ Roman Samarev}}
+\author[3,7]{ \large{ Henri Heiskanen }}
+\author[1,2,5]{\large{Volker Markl}}
+
+
+\affil[1]{\normalsize{DFKI, Germany}}
+\affil[2]{\normalsize{TU Berlin, Germany}}
+
+ \makeatletter
+\renewcommand\AB@affilsepx{ \\ \protect\Affilfont}
+\makeatother
+
+
+\affil[3]{\normalsize{Rovio Entertainment}}
+  \makeatletter
+\renewcommand\AB@affilsepx{, \protect\Affilfont}
+\makeatother
+
+
+ 
+\affil[4]{jeyhun.karimov@dfki.de} 
+\affil[5]{\{rabl, asterios.katsifodimos, volker.markl\}@tu-berlin.de}
+\affil[6]{samarev@acm.org}
+\affil[7]{henri.heiskanen@rovio.com}
+
+\setlength{\textfloatsep}{0.4cm}  %% Or whatever length
+\setlength{\abovecaptionskip}{0.5cm} % Or whatever length
+
 
 % possible, but not really needed or used for PVLDB:
 %\subtitle{[Extended Abstract]
@@ -135,7 +197,7 @@
 \input{5_System_Design}
 \input{6_Evaluation}
 \input{7_Conclusion}
-\input{8_Acknowledgments}
+%\input{8_Acknowledgments}
 
 
 
@@ -158,8 +220,10 @@
 % The following two commands are all you need in the
 % initial runs of your .tex file to
 % produce the bibliography for the citations in your paper.
+\begin{scriptsize}
 \bibliographystyle{abbrv}
-\bibliography{vldb_sample}  % vldb_sample.bib is the name of the Bibliography in this case
+\bibliography{vldb_sample}
+\end{scriptsize}  % vldb_sample.bib is the name of the Bibliography in this case
 % You must have a proper ".bib" file
 %  and remember to run:
 % latex bibtex latex latex

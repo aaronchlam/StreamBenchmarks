@@ -1,2 +1,7 @@
 \section{Conclusions}
 \label{conc}
+
+Responding to an increasing use of real time data processing in industry and in academia, we build a novel framework for benchmarking stream data processing engines. We identify the current challenges in this area and build our solution to solve them. First, we give the  definition of latency of a stateful operator and a methodology to measure it. The solution is lightweight and does not require the use of additional systems. Second, we completely separate the systems under test from the driver.  Third, we introduce a simple and novel technique to conduct  experiments with the highest sustainable workloads. %Finally, we achieve the above contributions with simple design. 
+We conduct extensive experiments with the three major distributed, open source stream processing engines - Apache Storm, Apache Spark, and Apache Flink. In the experiments, we can see that there is no single winner.  Each system has specific advantages and challenges. Thus, users need to take use-case requirements into account when choosing the right system. 
+We are currently extending the benchmarking framework to handle several other metrics like query throughput. In addition, we are developing a generic interface that the users can plug into any stream data processing system, in order to facilitate and simplify benchmarking.
+%\todo[inline]{The conclusion should include the contributions and the take home message (which is missing currently). Also we need some future work.}
