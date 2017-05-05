@@ -77,7 +77,7 @@ void openFiles(){
     {
             printf("Error opening file!\n");
             exit(1);
-    } 
+    }
 }
 
 unsigned long long  get_current_time_with_ms (void)
@@ -248,8 +248,10 @@ void *consume( void  )
             printf("Consumer log - %llu, %lu, %lu \n", consumerLog[logIndex]->key,consumerLog[logIndex]->value,consumerLog[logIndex]->throughput );
         }
         if (i % consumerLogInterval == 0) {
+            openFiles();
             fprintf(consumerFile, "%lu,%d\n", get_current_time_with_ms()/1000,consumedTuplesPerTimeUnit);
             consumedTuplesPerTimeUnit = 0;
+            fclose(consumerFile);
         } else {
             consumedTuplesPerTimeUnit ++;
         }
@@ -324,7 +326,6 @@ int main(int argc , char *argv[])
     srand(seed);
     sem_init(&sem, 0 , 0);
     buffer = malloc (benchmarkCount * sizeof(*buffer));   
-    openFiles() ;
     fireServerSocket(); 
     //initLogFiles();
     pthread_create( &producer, NULL, produce, NULL);
