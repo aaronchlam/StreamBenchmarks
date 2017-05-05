@@ -135,7 +135,8 @@ object SparkBenchmark {
                                                           System.currentTimeMillis() - tuple._2._1,
                                                           tuple._2._2,
                                                           tuple._2._4,
-                                                          tuple._2._1, tuple._2._5))
+                                                          tuple._2._1,
+                                                          tuple._2._5))
 
     mappedStream.saveAsTextFiles(CommonConfig.SPARK_OUTPUT());
     // resultStream.print();
