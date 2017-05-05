@@ -53,17 +53,19 @@ public class StormBenchmark {
             String geo = obj.getString("key");
             Double price = obj.getDouble("value");
             Long ts = obj.getLong("ts");
+            Long startTS = System.currentTimeMillis();
             _collector.emit(tuple, new Values(
                     geo,
                     ts,
-                    price
+                    price,
+                    startTS
           	  ));
              _collector.ack(tuple);
         }
 
         @Override
         public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields("geo", "ts", "price"));
+            declarer.declare(new Fields("geo", "ts", "price","start_ts"));
         }
     }
 
@@ -95,24 +97,24 @@ public class StormBenchmark {
     }
 
 
-    public static class FilterBolt extends BaseRichBolt {
-        OutputCollector _collector;
-
-        @Override
-        public void prepare(Map conf, TopologyContext context, OutputCollector collector) {
-            _collector = collector;
-        }
-
-        @Override
-        public void execute(Tuple tuple) {
-            _collector.ack(tuple);
-        }
-
-        @Override
-        public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields("geo", "ts", "price"));
-        }
-    }
+//    public static class FilterBolt extends BaseRichBolt {
+//        OutputCollector _collector;
+//
+//        @Override
+//        public void prepare(Map conf, TopologyContext context, OutputCollector collector) {
+//            _collector = collector;
+//        }
+//
+//        @Override
+//        public void execute(Tuple tuple) {
+//            _collector.ack(tuple);
+//        }
+//
+//        @Override
+//        public void declareOutputFields(OutputFieldsDeclarer declarer) {
+//            declarer.declare(new Fields("geo", "ts", "price"));
+//        }
+//    }
 
 
     public static class SlidingWindowAvgBolt extends BaseWindowedBolt {
@@ -144,7 +146,9 @@ public class StormBenchmark {
              * subtracted. Similar optimizations might be possible in other
              * windowing computations.
              */
+            Long startTs = 0L;
             for (Tuple tuple : newTuples) {
+                startTs = Math.max(startTs, tuple.getLong(3));
                 String key = tuple.getString(0);
                 sumState.put(key, sumState.getOrDefault(key,0.0 )  +  tuple.getDouble(2)    ) ;
                 tsMap.put(key, Math.max(tsMap.getOrDefault(key,0L), tuple.getLong(1)));
@@ -160,35 +164,35 @@ public class StormBenchmark {
             for (Map.Entry<String, Double> entry : sumState.entrySet()) {
                 String geo = entry.getKey();
                 Double sum = entry.getValue();
-                collector.emit(new Values(geo, tsMap.get(geo), sum / sizeState.get(geo), sizeState.get(geo)));
+                collector.emit(new Values(geo, tsMap.get(geo), sum / sizeState.get(geo), sizeState.get(geo), startTs));
             }
         }
         @Override
         public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields("geo","ts","avg_price", "window_size"));
+            declarer.declare(new Fields("geo","ts","avg_price", "window_size", "start_ts"));
         }
 
     }
 
-    public static class FinalTSJoinBolt extends BaseRichBolt {
-        OutputCollector _collector;
-
-        @Override
-        public void prepare(Map conf, TopologyContext context, OutputCollector collector) {
-            _collector = collector;
-        }
-
-        @Override
-        public void execute(Tuple tuple) {
-            _collector.emit(tuple, new Values( System.currentTimeMillis() - tuple.getLongByField("max_ts"), tuple.getLongByField("max_ts") ));
-            _collector.ack(tuple);
-        }
-
-        @Override
-        public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields( "interval", "max_ts"));
-        }
-    }
+//    public static class FinalTSJoinBolt extends BaseRichBolt {
+//        OutputCollector _collector;
+//
+//        @Override
+//        public void prepare(Map conf, TopologyContext context, OutputCollector collector) {
+//            _collector = collector;
+//        }
+//
+//        @Override
+//        public void execute(Tuple tuple) {
+//            _collector.emit(tuple, new Values( System.currentTimeMillis() - tuple.getLongByField("max_ts"), tuple.getLongByField("max_ts") ));
+//            _collector.ack(tuple);
+//        }
+//
+//        @Override
+//        public void declareOutputFields(OutputFieldsDeclarer declarer) {
+//            declarer.declare(new Fields( "interval", "max_ts"));
+//        }
+//    }
 
 
 
@@ -203,13 +207,13 @@ public class StormBenchmark {
         @Override
         public void execute(Tuple tuple) {
             Long ts = System.currentTimeMillis() -  tuple.getLong(1);
-            _collector.emit(tuple, new Values(tuple.getString(0), ts , tuple.getLong(1), tuple.getDouble(2), tuple.getInteger(3) ));
+            _collector.emit(tuple, new Values(tuple.getString(0), ts , tuple.getLong(1), tuple.getDouble(2), tuple.getInteger(3), tuple.getLong(4) ));
             _collector.ack(tuple);
         }
 
         @Override
         public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields( "geo","ts","ts_start","avg_price", "window_size"));
+            declarer.declare(new Fields( "geo","ts","ts_start","avg_price", "window_size", "start_ts"));
         }
     }
 
@@ -261,127 +265,127 @@ public class StormBenchmark {
 
     }
 
-    private static StormTopology dummyConsumer(TopologyBuilder builder) {
-        for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            for(Integer port: CommonConfig.DATASOURCE_PORTS()){
-                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),CommonConfig.PARALLELISM());
-            }
-        }
-        BoltDeclarer bolt= builder.setBolt("event_filter", new FilterBolt(), CommonConfig.PARALLELISM());
-        for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
-                bolt = bolt.shuffleGrouping("source"+host + "" + port);
-            }
-        }
-        builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
-        return builder.createTopology();
-    }
+//    private static StormTopology dummyConsumer(TopologyBuilder builder) {
+//        for (String host: CommonConfig.DATASOURCE_HOSTS()){
+//            for(Integer port: CommonConfig.DATASOURCE_PORTS()){
+//                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),CommonConfig.PARALLELISM());
+//            }
+//        }
+//        BoltDeclarer bolt= builder.setBolt("event_filter", new FilterBolt(), CommonConfig.PARALLELISM());
+//        for (String host: CommonConfig.DATASOURCE_HOSTS()){
+//            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
+//                bolt = bolt.shuffleGrouping("source"+host + "" + port);
+//            }
+//        }
+//        builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
+//        return builder.createTopology();
+//    }
 
 
-    public static class SlidingWindowJoinBolt extends BaseWindowedBolt {
+//    public static class SlidingWindowJoinBolt extends BaseWindowedBolt {
+//
+//        private OutputCollector collector;
+//        private HashMap<String, HashMap<Long, Integer>> probeMap = new HashMap<>();
+//        private String probeStreamID;
+//        public SlidingWindowJoinBolt(String probeStream){
+//            this.probeStreamID = probeStream;
+//        }
+//
+//        @Override
+//        public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
+//            this.collector = collector;
+//        }
+//
+//        @Override
+//        public void execute(TupleWindow inputWindow) {
+//
+//            List<Tuple> newTestTuples = new ArrayList<>();
+//
+//            for (Tuple t : inputWindow.getExpired() ){
+//                if (t.getSourceGlobalStreamId().get_componentId().equals(probeStreamID)){
+//                    String key = t.getStringByField("group");
+//                    HashMap<Long, Integer> hm = probeMap.get(key);
+//                    Integer count = hm.get(t.getLongByField("ts"));
+//                    count --;
+//                    if (count <= 0){
+//                        hm.remove(t.getLongByField("ts"));
+//                    } else {
+//                        hm.put(t.getLongByField("ts"), count);
+//                    }
+//                    if (hm.size() == 0) {
+//                        probeMap.remove(key);
+//                    } else {
+//                        probeMap.put(key, hm);
+//                    }
+//                }
+//            }
+//            for (Tuple t: inputWindow.getNew()){
+//                if (t.getSourceGlobalStreamId().get_componentId().equals(probeStreamID)){
+//                    String key = t.getStringByField("group");
+//                    HashMap<Long, Integer> hm = probeMap.getOrDefault(key, new HashMap<Long, Integer>());
+//                    hm.put(t.getLongByField("ts"), hm.getOrDefault(t.getLongByField("ts"), 0) + 1   );
+//                    probeMap.put(key,hm);
+//                } else {
+//                    newTestTuples.add(t);
+//                }
+//            }
+//
+//            for (Tuple t: newTestTuples){
+//                String key = t.getStringByField("group");
+//                if (probeMap.containsKey(key)){
+//                    HashMap<Long, Integer> hm = probeMap.get(key);
+//                    for (Map.Entry<Long, Integer> entry : hm.entrySet()) {
+//                        for (int i = 0; i < entry.getValue(); i++){
+//                            collector.emit(new Values(  Math.max( t.getLongByField("ts"), entry.getKey()))   );
+//                        }
+//                    }
+//                }
+//            }
+//
+//
+//
+//        }
+//        @Override
+//        public void declareOutputFields(OutputFieldsDeclarer declarer) {
+//            declarer.declare(new Fields("max_ts"));
+//        }
+//
+//    }
 
-        private OutputCollector collector;
-        private HashMap<String, HashMap<Long, Integer>> probeMap = new HashMap<>();
-        private String probeStreamID;
-        public SlidingWindowJoinBolt(String probeStream){
-            this.probeStreamID = probeStream;
-        }
-
-        @Override
-        public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
-            this.collector = collector;
-        }
-
-        @Override
-        public void execute(TupleWindow inputWindow) {
-
-            List<Tuple> newTestTuples = new ArrayList<>();
-
-            for (Tuple t : inputWindow.getExpired() ){
-                if (t.getSourceGlobalStreamId().get_componentId().equals(probeStreamID)){
-                    String key = t.getStringByField("group");
-                    HashMap<Long, Integer> hm = probeMap.get(key);
-                    Integer count = hm.get(t.getLongByField("ts"));
-                    count --;
-                    if (count <= 0){
-                        hm.remove(t.getLongByField("ts"));
-                    } else {
-                        hm.put(t.getLongByField("ts"), count);
-                    }
-                    if (hm.size() == 0) {
-                        probeMap.remove(key);
-                    } else {
-                        probeMap.put(key, hm);
-                    }
-                }
-            }
-            for (Tuple t: inputWindow.getNew()){
-                if (t.getSourceGlobalStreamId().get_componentId().equals(probeStreamID)){
-                    String key = t.getStringByField("group");
-                    HashMap<Long, Integer> hm = probeMap.getOrDefault(key, new HashMap<Long, Integer>());
-                    hm.put(t.getLongByField("ts"), hm.getOrDefault(t.getLongByField("ts"), 0) + 1   );
-                    probeMap.put(key,hm);
-                } else {
-                    newTestTuples.add(t);
-                }
-            }
-
-            for (Tuple t: newTestTuples){
-                String key = t.getStringByField("group");
-                if (probeMap.containsKey(key)){
-                    HashMap<Long, Integer> hm = probeMap.get(key);
-                    for (Map.Entry<Long, Integer> entry : hm.entrySet()) {
-                        for (int i = 0; i < entry.getValue(); i++){
-                            collector.emit(new Values(  Math.max( t.getLongByField("ts"), entry.getKey()))   );
-                        }
-                    }
-                }
-            }
 
 
-
-        }
-        @Override
-        public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields("max_ts"));
-        }
-
-    }
-
-
-
-    private static StormTopology windowedJoin(TopologyBuilder builder){
-        for (String host: CommonConfig.DATASOURCE_HOSTS()){
-            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
-                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),1);
-            }
-        }
-        BoltDeclarer joinBolt1= builder.setBolt("event_deserializer1", new DeserializeAndGroupBolt(), CommonConfig.PARALLELISM());
-        BoltDeclarer joinBolt2= builder.setBolt("event_deserializer2", new DeserializeAndGroupBolt(), CommonConfig.PARALLELISM());
-
-        int i = 0;
-        for (String host: CommonConfig.DATASOURCE_HOSTS()) {
-            for (Integer port : CommonConfig.DATASOURCE_PORTS()) {
-                if (i % 2 == 0){
-                    joinBolt1 = joinBolt1.shuffleGrouping("source"+host + "" + port);
-                } else {
-                    joinBolt2 = joinBolt2.shuffleGrouping("source"+host + "" + port);
-                }
-                i++;
-            }
-        }
-
-        builder.setBolt("sliding_join", new SlidingWindowJoinBolt("event_deserializer1")
-                .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS),
-                        new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS)),CommonConfig.PARALLELISM())
-                .fieldsGrouping("event_deserializer1", new Fields("group") )
-                .fieldsGrouping("event_deserializer2", new Fields("group") );
-        builder.setBolt("event_filter", new FinalTSJoinBolt(), CommonConfig.PARALLELISM()).shuffleGrouping("sliding_join");
-        builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
-        return builder.createTopology();
-
-    }
-
+//    private static StormTopology windowedJoin(TopologyBuilder builder){
+//        for (String host: CommonConfig.DATASOURCE_HOSTS()){
+//            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
+//                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),1);
+//            }
+//        }
+//        BoltDeclarer joinBolt1= builder.setBolt("event_deserializer1", new DeserializeAndGroupBolt(), CommonConfig.PARALLELISM());
+//        BoltDeclarer joinBolt2= builder.setBolt("event_deserializer2", new DeserializeAndGroupBolt(), CommonConfig.PARALLELISM());
+//
+//        int i = 0;
+//        for (String host: CommonConfig.DATASOURCE_HOSTS()) {
+//            for (Integer port : CommonConfig.DATASOURCE_PORTS()) {
+//                if (i % 2 == 0){
+//                    joinBolt1 = joinBolt1.shuffleGrouping("source"+host + "" + port);
+//                } else {
+//                    joinBolt2 = joinBolt2.shuffleGrouping("source"+host + "" + port);
+//                }
+//                i++;
+//            }
+//        }
+//
+//        builder.setBolt("sliding_join", new SlidingWindowJoinBolt("event_deserializer1")
+//                .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS),
+//                        new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS)),CommonConfig.PARALLELISM())
+//                .fieldsGrouping("event_deserializer1", new Fields("group") )
+//                .fieldsGrouping("event_deserializer2", new Fields("group") );
+//        builder.setBolt("event_filter", new FinalTSJoinBolt(), CommonConfig.PARALLELISM()).shuffleGrouping("sliding_join");
+//        builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
+//        return builder.createTopology();
+//
+//    }
+//
 
     public static void main(String[] args) throws Exception {
 
@@ -393,11 +397,7 @@ public class StormBenchmark {
         StormTopology topology = null;
         if(CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.AGGREGATION_USECASE)){
             topology = windowedAggregation(builder);
-        } else if(CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.JOIN_USECASE)){
-            topology = windowedJoin(builder);
-        } else if (CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.DUMMY_CONSUMER)){
-            topology = dummyConsumer(builder);
-        }
+        } 
 
         Config conf = new Config();
         if (runningMode.equals("cluster")) {
