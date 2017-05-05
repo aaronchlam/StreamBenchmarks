@@ -35,7 +35,7 @@ unsigned long geoIndex=0;
 unsigned long geoIndexRemaining=0;
 int geoArraySize;
 int geoArraySizeRemaining;
-int maxPrice = 100;
+int maxPrice = 1000;
 char ** buffer;
 int port;
 unsigned long logInterval;
@@ -56,11 +56,29 @@ FILE *producerFile;
 
 char * producerFP;
 char * consumerFP;
-int nonSleepCount;
+int dataGeneratedAfterEachSleep;
 int sustainability_limit;
 int backpressure_limit;
-double partitionSize;
-unsigned long selectivity;
+double skew;
+unsigned long selectivityOfSkewedData;
+int consumedTuplesPerTimeUnit = 0;
+int consumerLogInterval;
+
+
+void openFiles(){
+    char hostnameAndPort[1024];
+    char hostname[500];
+    hostname[500] = '\0';
+    hostnameAndPort[1024] = '\0';
+    gethostname(hostname, 1023);
+    sprintf(hostnameAndPort, "/share/hadoop/jkarimov/workDir/StreamBenchmarks/data-generator/stats/%s-%d.csv", hostname, port);
+    consumerFile = fopen(hostnameAndPort, "a");
+    if (consumerFile == NULL)
+    {
+            printf("Error opening file!\n");
+            exit(1);
+    } 
+}
 
 unsigned long long  get_current_time_with_ms (void)
 {
@@ -115,17 +133,17 @@ void initializeGeoList( double d){
 
 char* generateJsonString( unsigned long currentIndex){
 	char * newJson = malloc(100);
-        if(partitionSize != 1.0 && currentIndex % selectivity == 0 ){
-	   sprintf(newJson,"{\"key\":\"%s\",\"value\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoListRemaining[geoIndexRemaining] , rand() % maxPrice,get_current_time_with_ms());
-	   geoIndexRemaining++;
-	   geoIndexRemaining = geoIndexRemaining % geoArraySizeRemaining;	
-	   return newJson;
+        if(skew != 1.0 && currentIndex % selectivityOfSkewedData == 0 ){
+	        sprintf(newJson,"{\"key\":\"%s\",\"value\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoListRemaining[geoIndexRemaining] , rand() % maxPrice,get_current_time_with_ms());
+	        geoIndexRemaining++;
+	        geoIndexRemaining = geoIndexRemaining % geoArraySizeRemaining;	
+	        return newJson;
         }
         else{
-	   sprintf(newJson,"{\"key\":\"%s\",\"value\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoList[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
-           geoIndex++;
- 	   geoIndex = geoIndex % geoArraySize;	
-	   return newJson;
+	        sprintf(newJson,"{\"key\":\"%s\",\"value\":\"%d\",\"ts\":\"%llu\"}\n", reducedGeoList[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
+            geoIndex++;
+ 	        geoIndex = geoIndex % geoArraySize;	
+	        return newJson;
         }
 }
 
@@ -143,7 +161,7 @@ void *produce( void  )
     int queue_size ;
     int backpressure_tolerance_iteration = backpressure_limit/sustainability_limit;
     for (unsigned long i = 0; i < benchmarkCount; ){
-	for(int k = 0; k < nonSleepCount && i < benchmarkCount; k++ ,i++){
+	for(int k = 0; k < dataGeneratedAfterEachSleep && i < benchmarkCount; k++ ,i++){
          buffer[i] = generateJsonString(i);
          if(i % logInterval == 0){
               sem_getvalue(&sem, &queue_size);
@@ -226,8 +244,14 @@ void *consume( void  )
             unsigned long long interval = consumerLog[logIndex]->key - startTime;
             if(interval != 0){
                  consumerLog[logIndex]->throughput = i / interval;
-	     }
-           printf("Consumer log - %llu, %lu, %lu \n", consumerLog[logIndex]->key,consumerLog[logIndex]->value,consumerLog[logIndex]->throughput );
+	        }
+            printf("Consumer log - %llu, %lu, %lu \n", consumerLog[logIndex]->key,consumerLog[logIndex]->value,consumerLog[logIndex]->throughput );
+        }
+        if (i % consumerLogInterval == 0) {
+            fprintf(consumerFile, "%lu,%d\n", get_current_time_with_ms()/1000,consumedTuplesPerTimeUnit);
+            consumedTuplesPerTimeUnit = 0;
+        } else {
+            consumedTuplesPerTimeUnit ++;
         }
      free(buffer[i]);
     }
@@ -284,23 +308,23 @@ void fireServerSocket(void){
 
 int main(int argc , char *argv[])
 {
-
     pthread_t producer, consumer;
-    sscanf(argv[1],"%lf",&partitionSize);
+    sscanf(argv[1],"%lf",&skew);
     sscanf(argv[2],"%lu",&benchmarkCount); 
     sscanf(argv[4],"%d",&port); 
     sscanf(argv[3],"%lu",&logInterval);
     sscanf(argv[5],"%lu",&sleepTime);
-    sscanf(argv[6],"%d",&nonSleepCount);
+    sscanf(argv[6],"%d",&dataGeneratedAfterEachSleep);
     sscanf(argv[7],"%d",&sustainability_limit);
     sscanf(argv[8],"%d",&backpressure_limit);
-    sscanf(argv[9],"%lu",&selectivity);
-    initializeGeoList( partitionSize);
+    sscanf(argv[9],"%lu",&selectivityOfSkewedData);
+    sscanf(argv[10],"%d",&consumerLogInterval);
+    initializeGeoList( skew);
     int seed = 123;
     srand(seed);
     sem_init(&sem, 0 , 0);
     buffer = malloc (benchmarkCount * sizeof(*buffer));   
-    
+    openFiles() ;
     fireServerSocket(); 
     //initLogFiles();
     pthread_create( &producer, NULL, produce, NULL);

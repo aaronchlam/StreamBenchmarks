@@ -25,6 +25,7 @@ def stop_flink():
 
 def flink_benchmark():
         clear_dir( common_config['project_home']  + "output/flink/")
+        clear_dir( common_config['project_home']  + "data-generator/stats/")
         sp.call([ common_config['flink_home'] + "bin/flink" , "run", common_config['project_home'] + "flink-benchmarks/target/flink-benchmarks-0.1.0.jar", "--confPath",conf_file])     
 
 def start_spark():
@@ -42,6 +43,7 @@ def clear_dir(path):
 
 def spark_benchmark():
         clear_dir( common_config['project_home']  + "output/spark/")
+        clear_dir( common_config['project_home']  + "data-generator/stats/")
         sp.call([ common_config['spark_home']  + 'bin/spark-submit' ,'--class' ,'spark.benchmark.SparkBenchmark', common_config['project_home']  + 'spark-benchmarks/target/spark-benchmarks-0.1.0.jar' , conf_file])
 
 def start_zookeeper():
@@ -89,6 +91,7 @@ def stop_process_all(name):
 
 def storm_benchmark():
         clear_dir( common_config['project_home']  + "output/storm/")
+        clear_dir( common_config['project_home']  + "data-generator/stats/")
         sp.call([common_config['storm_home'] + "bin/storm", "jar", common_config['project_home']  + 'storm-benchmarks/target/storm-benchmarks-0.1.0.jar' , 'storm.benchmark.StormBenchmark', conf_file,'cluster','topologyName'])
 
 def merge_output_files():
@@ -111,7 +114,7 @@ def start_data_generators():
         for host in common_config['datasourcesocket.hosts']:
                 idx = 0
                 for  port in common_config['datasourcesocket.ports']:
-                        start_script = '\'' +  common_config['project_home'] + 'data-generator/benchmark_data_generator ' +  str( selectivities[idx]) + ' ' + str(common_config['datagenerator.benchmarkcount']) + ' ' + str(common_config['datagenerator.loginterval']) + ' ' + str(port) + ' ' + common_config['datagenerator.stats.dir'] + ' ' + str(common_config['datagenerator.sleep.ms']) + ' ' + str( common_config['datagenerator.nonsleepcount']) + ' ' + str(common_config['sustainability.limit']) + ' ' +  str(common_config['backpressure.limit']) + '\''
+                        start_script = '\'' +  common_config['project_home'] + 'data-generator/benchmark_data_generator ' +  str( selectivities[idx]) + ' ' + str(common_config['datagenerator.benchmarkcount']) + ' ' + str(common_config['datagenerator.loginterval']) + ' ' + str(port) + ' ' + str(common_config['datagenerator.sleep.ms']) + ' ' + str( common_config['datagenerator.nonsleepcount']) + ' ' + str(common_config['sustainability.limit']) + ' ' +  str(common_config['backpressure.limit']) + '\''
                         idx = idx+1
                         sp.Popen (["ssh", host.strip() , '\'' + start_script + '\'' ],stdout=sp.PIPE,stderr=sp.STDOUT)
                         time.sleep(1)                   
@@ -155,6 +158,8 @@ if(len(sys.argv[1:]) == 1):
                  concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/storm/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/storm_temp.csv')
         elif(arg == "concat-flink"):
                 concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/flink/*/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/flink_temp.csv')
+        elif(arg == "concat-stats"):
+               concat_files_in_dir('/share/hadoop/jkarimov/workDir/StreamBenchmarks/data-generator/stats/*','/share/hadoop/jkarimov/workDir/StreamBenchmarks/output/temp/stats_temp.csv')
         elif(arg == "start-datagenerators"):
                 start_data_generators()
         elif(arg == "start-vmstats"):
