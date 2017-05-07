@@ -40,6 +40,7 @@ public class CommonConfig {
 
     public static String AGGREGATION_USECASE = "KeyedWindowedAggregation";
     public static String JOIN_USECASE = "WindowedJoin";
+    public static String ALLWINDOWED_AGGREGATION_USECASE = "GlobalWindowedAggregation";
     public static String DUMMY_CONSUMER = "DummyConsumer";
     public static String SPARK_WINDOW_USE = "spark.window.use";
     public static String JOIN_FILTER_FACTOR = "join.filter.factor";

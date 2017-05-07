@@ -53,6 +53,8 @@ public class FlinkBenchmark {
             keyedWindowedAggregationBenchmark(env);
         } else if (CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.JOIN_USECASE)){
             windowedJoin(env);
+        } else if (CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.ALLWINDOWED_AGGREGATION_USECASE)){
+            allWindowedAggregationBenchmark(env);
         } else if(CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.DUMMY_CONSUMER)){
             dummyConsumer(env);
         }
@@ -210,6 +212,61 @@ public class FlinkBenchmark {
 
         mappedStream.addSink(sink);
     }
+
+
+
+
+
+
+    private static void allWindowedAggregationBenchmark(StreamExecutionEnvironment env){
+        DataStream<String> socketSource = null;
+        for (String host : CommonConfig.DATASOURCE_HOSTS()) {
+            for (Integer port: CommonConfig.DATASOURCE_PORTS()){
+                DataStream<String> socketSource_i = env.socketTextStream(host, port);
+                socketSource = socketSource == null ? socketSource_i : socketSource.union(socketSource_i);
+            }
+        }
+
+        DataStream<Tuple6<String, Long, Double, Integer,Integer, Long>> messageStream = socketSource.map(new MapFunction<String, Tuple6<String, Long, Double, Integer,Integer, Long>>() {
+            @Override
+            public Tuple6<String, Long, Double, Integer,Integer, Long> map(String s) throws Exception {
+                JSONObject obj = new JSONObject(s);
+                String geo = obj.getString("key");
+                Double price = obj.getDouble("value");
+                Long ts =  obj.getLong("ts");
+                return new Tuple6<String, Long, Double, Integer,Integer, Long>(geo, ts , price, 1 ,1, System.currentTimeMillis());
+            }
+        });
+
+        DataStream<Tuple6<String, Long, Double, Integer,Integer, Long>> aggregatedStream = messageStream
+                .timeWindowAll(Time.milliseconds(CommonConfig.SLIDING_WINDOW_LENGTH()), Time.milliseconds(CommonConfig.SLIDING_WINDOW_SLIDE())).
+                        reduce(new ReduceFunction<Tuple6<String, Long, Double, Integer,Integer, Long>>() {
+                            @Override
+                            public Tuple6<String, Long, Double, Integer,Integer, Long> reduce(Tuple6<String, Long, Double, Integer,Integer, Long> t1, Tuple6<String, Long, Double, Integer,Integer, Long> t2) throws Exception {
+                                Double avgPrice = (t1.f3 * t1.f2 + t2.f3 * t2.f2) / t1.f3 + t2.f3;
+                                Integer avgCount = t1.f3 + t2.f3;
+                                Integer windowCount = t1.f4 + t2.f4;
+                                Long ts = Math.max(t1.f1, t2.f1);
+                                Long startTS = ts == t1.f1 ? t1.f5 : t2.f5;
+                                return new Tuple6<String, Long, Double, Integer,Integer, Long>(t1.f0, ts, avgPrice, avgCount,windowCount, startTS);
+                            }
+                        });
+
+
+        DataStream<Tuple6<String, Long, Double,Integer,Long, Long>> mappedStream = aggregatedStream.map(new MapFunction<Tuple6<String, Long, Double, Integer, Integer, Long>, Tuple6<String, Long, Double, Integer, Long, Long>>() {
+            @Override
+            public Tuple6<String, Long, Double,Integer,Long, Long> map(Tuple6<String, Long, Double, Integer, Integer, Long> t1) throws Exception {
+                return new Tuple6<String, Long, Double,Integer,Long, Long>(t1.f0, System.currentTimeMillis()  - t1.f1, t1.f2,t1.f4, t1.f1, t1.f5);
+            }
+        });
+
+
+        RollingSink sink = new RollingSink<String>(CommonConfig.FLINK_OUTPUT());
+        sink.setBatchSize(1024 * CommonConfig.OUTPUT_BATCHSIZE_KB()); // this is 400 MB,
+
+        mappedStream.addSink(sink);
+    }
+
 
 }
 

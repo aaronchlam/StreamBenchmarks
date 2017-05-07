@@ -265,6 +265,29 @@ public class StormBenchmark {
 
     }
 
+    private static StormTopology allWindowedAggregation(TopologyBuilder builder){
+        for (String host: CommonConfig.DATASOURCE_HOSTS()){
+            for(Integer port: CommonConfig.DATASOURCE_PORTS()){
+                builder.setSpout("source"+host + "" + port, new SocketReceiver(host, port),1);
+            }
+        }
+        BoltDeclarer bolt= builder.setBolt("event_deserializer", new DeserializeBolt(), CommonConfig.PARALLELISM());
+        for (String host: CommonConfig.DATASOURCE_HOSTS()){
+            for(Integer port: CommonConfig.DATASOURCE_PORTS()) {
+                bolt = bolt.shuffleGrouping("source"+host +"" + port);
+            }
+        }
+        builder.setBolt("sliding_avg", new SlidingWindowAvgBolt()
+                        .withWindow(new Duration(CommonConfig.SLIDING_WINDOW_LENGTH(), TimeUnit.MILLISECONDS),
+                                new Duration(CommonConfig.SLIDING_WINDOW_SLIDE(), TimeUnit.MILLISECONDS))
+                ,1).fieldsGrouping("event_deserializer", new Fields("geo") );
+        builder.setBolt("event_filter", new FinalTSBolt(), CommonConfig.PARALLELISM()).shuffleGrouping("sliding_avg");
+        builder.setBolt("hdfsbolt", createSink(), CommonConfig.PARALLELISM()).shuffleGrouping("event_filter");
+        return builder.createTopology();
+
+    }
+
+
 //    private static StormTopology dummyConsumer(TopologyBuilder builder) {
 //        for (String host: CommonConfig.DATASOURCE_HOSTS()){
 //            for(Integer port: CommonConfig.DATASOURCE_PORTS()){
@@ -397,7 +420,9 @@ public class StormBenchmark {
         StormTopology topology = null;
         if(CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.AGGREGATION_USECASE)){
             topology = windowedAggregation(builder);
-        } 
+        } else if(CommonConfig.BENCHMARKING_USECASE().equals(CommonConfig.ALLWINDOWED_AGGREGATION_USECASE)){
+            topology = allWindowedAggregation(builder);
+        }
 
         Config conf = new Config();
         if (runningMode.equals("cluster")) {
