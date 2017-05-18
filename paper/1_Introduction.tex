@@ -1,27 +1,6 @@
 \section{Introduction}
 Processing large volumes of data in batch is often not sufficient in cases where new data has to be processed fast to quickly adapt and react to changes. For that reason, stream data processing (SDP) has gained significant attention. The most popular engines used for SDP, with large-scale adoption by industry and the research community, are Apache Storm \cite{toshniwal2014storm}, Apache Spark  \cite{zaharia2012discretized}, and Apache Flink \cite{carbone2015apache}. 
 
-\begin{figure*}
-    \centering
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{2nodesize2_hist}
-
-        \caption{Storm, 2-node, max  throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{2nodesize2_hist}
-
-        \caption{Storm, 4-node, max   throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{2nodesize2_ts}
-
-        \caption{Storm, 8-node, max  throughput }
-        
-    \end{subfigure}
-\end{figure*}
 
 One  important application area of SDP is  online video games. These require the fast processing  of large scale online data feeds  from different sources. Windowed aggregations and windowed joins are two main operations that are used to monitor user feeds. One typical use-case is tracking the in-application-purchases (IAPs) per application, per distribution channel, or per product item (in-app products). Another typical use-case is the monitoring of advertising:  making sure that all campaigns and advertisement networks work flawlessly. Yet another use-case is comparing different user feeds by  joining them. For example, monitoring the IAPs of the same game downloaded from different distribution channels and comparing users'  actions  are essential in  online video game monitoring.
 

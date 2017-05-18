@@ -8,7 +8,7 @@ All nodes' system clocks in the cluster are synchronized via an NTP server. We g
 %\todo[inline]{actually, maybe it would be interesting to add event time windows for Storm and Flink=>currently we cannot do it, because of time limitation}. 
 We select $q^{a}$ to be 5\% and $q^{b}$ 10 \% of the overall input. Although we did experiments with lower values of the particular variables, it was hard to detect the systems' maximum sustainable throughput. The reason is that  the systems under test use pull-based mechanism to get data from DQS and and the smaller the queue size the more difficult to test SUT's upper limit workload.  We use approximately 25\% of the input data as a warmup. So, in all experiments we exclude the first 25\% of output. The backpressure is enabled in all systems to ensure the durability of experiments. That is, we do not want the systems to ingest more input than they can process and crash during the experiment. In preliminary experiments, measuring the maximum throughput without backpressure mechanisms lead to various exceptions. If the SUT drops one or more connections to the DI, then the experiment is halted with the conclusion that the SUT cannot sustain the given throughput. Similarly, in real-life if the system cannot sustain the user feed and drops connection, then this is considered as a failure.  
 
-
+\textbf{Tuning the systems.}
 Tuning the engines' configuration parameters is important to get a good performance for the given use-cases. %\todo[inline]{what are aggregation partitioned windows?=>fixed}
 There are several properties for each SDPS, that need to be tuned to customize the given use-case. For example, in Flink the buffer size has to be adjusted properly to ensure a good balance between throughput and latency. Although selecting low buffer sizes can result in low system latency, the actual latency of tuples may increase as they will be queued in the DQI instead of the buffers inside the system. In Spark the block interval for partitioning the RDDs is one key aspect to tune the system for the given use-case. The number of RDD partitions a single mini-batch  is bounded by $batchInterval \ / \ blockInterval$. As the cluster size increases, decreasing the block interval can increase the parallelism. One of the main reasons that Spark scales up very well is the partitioning of RDDs. However, depending on the use-case, the optimal number of RDD partitions can change. In Storm the number of workers, executors and buffer size are the the configurations (among many other) that needs to be tuned to get the best performance. Similar to Flink, choosing the buffer size is a key to balance between latency and throughput. For all systems,  choosing the right parallelism level is essential to balance between a good resource utilization and network or resource exhaustion.
 %\todo[inline]{can you comment on the parameters that you set and how you determined the right parameters? This would be more helpful then just saying that this needs to be done=>below}
@@ -16,8 +16,10 @@ There are several properties for each SDPS, that need to be tuned to customize t
 
 
 
-\subsection{Keyed Windowed Aggregations}
+\textbf{Windowed operations.} \textcolor{red}{When talking about the windowed queries, we should take the system architecture into the consideration. For example, Spark gathers the data in window and then parallelizes the computation within a single window. Basically, it enables users to query a single window. We call it global windows. Flink and Storm on the other hand, first partitions the data and then creates windows. As a result, user queries much smaller(depending on data skew) partitioned windows. However, there is no coordination between partitioned windows. As a result, there is no guarantee that one set of windows will be processed after another. We call this approach partitioned windows. 
+	In all previous works, this difference was neglected. Spark supports only global windows but Flink and Storm supports both types. Throughout our evaluations, we evaluate both cases for Flink and Storm and compare with Spark.  }
 
+\textbf{Partitioned Windowed Aggregations.}
 In the first use-case, we use parti\-tioned  windowed aggregations in Storm, Spark, and Flink. We calculate the maximum sustainable  throughput for  each SDPS. To confirm that the engines are saturated, we performed the same experiments with 90\% of the maximum throughput. We calculate the latency measurements for each system over the respective throughputs.  
 
     \begin{table*}
@@ -72,6 +74,8 @@ As we see from Table \ref{tab_lat_agg},  Spark has more latency than Storm and F
 
 
 
+\textbf{Global Windowed Aggregations.}
+\textcolor{red}{As we discussed above, in global windowed aggregations the system collects the data and parallelizes the query for the data inside window. As a result, the system should be able to manage and parallelize large size windows. Because Spark only supports global windowed aggregations, we enable the global window aggregation semantics in Flink and Storm and compare with Spark. In Flink and Storm, for all types of windowed queries, the performance of the system is bounded by the performance of a single slot of a machine, meaning it does not scale. The reason lies under the design option of a system. That is, supporting querying querying big windows and coordinating the sub-queries of a given query is costly. For Query- 1, we measured the throughput 480K for Flink and 200K for Storm. We can see that on 2 nodes Flink's single threaded global windowed aggregation beats over Spark and Storm. However, Spark imrpoves the performance as it scales as we can see from Table \ref{tab_th_agg}.}
 
 
 
@@ -86,136 +90,6 @@ As we see from Table \ref{tab_lat_agg},  Spark has more latency than Storm and F
 
 
 
-\begin{figure*}
-    \centering
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/storm_agg_2node_th_max_hist}
-
-        \caption{Storm, 2-node, max  throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/storm_agg_4node_th_max_hist}
-
-        \caption{Storm, 4-node, max   throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/storm_agg_8node_th_max_hist}
-
-        \caption{Storm, 8-node, max  throughput }
-        
-    \end{subfigure}
-
-
-
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/spark_agg_2node_th_max_hist}
-
-        \caption{Spark, 2-node, max  throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/spark_agg_4node_th_max_hist}
-
-        \caption{Spark, 4-node, max  throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/spark_agg_8node_th_max_hist}
-
-        \caption{Spark, 8-node, max  throughput }
-        
-    \end{subfigure}
-
-
-
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/flink_agg_2node_th_max_hist}
-
-        \caption{Flink, 2-node, max  throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/flink_agg_4node_th_max_hist}
-
-        \caption{Flink, 4-node, max  throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/flink_agg_8node_th_max_hist}
-
-        \caption{Flink, 8-node, max  throughput }
-        
-    \end{subfigure}
-
-
-
-
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/storm_agg_2node_th_90_hist}
-
-        \caption{Storm, 2-node, 90\%- throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/storm_agg_4node_th_90_hist}
-
-        \caption{Storm, 4-node, 90\%- throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/storm_agg_8node_th_90_hist}
-
-        \caption{Storm, 8-node,  90\%-throughput }
-        
-    \end{subfigure}
-
-
-
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/spark_agg_2node_th_90_hist}
-
-        \caption{Spark, 2-node,  90\%-throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/spark_agg_4node_th_90_hist}
-
-        \caption{Spark, 4-node,  90\%-throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/spark_agg_8node_th_90_hist}
-
-        \caption{Spark, 8-node,  90\%-throughput }
-        
-    \end{subfigure}
-
-
-
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/flink_agg_2node_th_90_hist}
-
-        \caption{Flink, 2-node,  90\%-throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/flink_agg_4node_th_90_hist}
-
-        \caption{Flink, 4-node,  90\%-throughput }
-    \end{subfigure}
-    ~ 
-    \begin{subfigure}[b]{0.3\textwidth}
-        \includegraphics[width=\textwidth]{eps/flink_agg_8node_th_90_hist}
-
-        \caption{Flink, 8-node,  90\%-throughput }
-        
-    \end{subfigure}
-
-        \caption{Windowed aggregation latency distributions in histogram}
-                \label{fig_hist_agg}
-\end{figure*}
 
 
 
@@ -441,9 +315,221 @@ Figure \ref{fig_cpu_network_metrics} shows the resource usages of the SUTs. The 
 
 
 
+\textbf{Event time vs System time latency.}
+\textcolor{red}{In this paper we introduce new definition of latency for SDPSs. It is crucial to conduct comparative analysis of event time and system time latency. System time latency is the time interval between tuple's ingestion to SUT and its emission from the sink operator of SUT. Event time latency, on the other hand, is the end-to-end latency between tuple's tuple's event time and its emission time from the sink operator of SUT. Figure \ref{event_vs_system_latency} shows the comparison between the two cases. We conducted this experiments with Query-1, window length = 8 sec, window slide = 4 sec. Event with small cluster size  we can see, there is significant difference between event and system time latency. To be more specific, Storm's $avg$ system time latency is 1234ms (event time is 1407ms), Spark's is 1040ms (even time is 3394ms) and Flink's $avg$ system time latency is 254ms (event time is 563ms). We examined the similar behavior with large cluster size and with join queries as well. }
 
 
-\subsection{Windowed Joins}
+
+
+\begin{figure*}
+	\centering
+	
+	\begin{subfigure}[b]{0.3\textwidth}
+		\includegraphics[width=\textwidth]{eps/storm_agg_2node_th_max2_ts}
+		\includegraphics[width=\textwidth]{eps/storm_2node-system_2}
+		
+		\caption{TODO }
+	\end{subfigure}
+	~ 
+	\begin{subfigure}[b]{0.3\textwidth}
+		\includegraphics[width=\textwidth]{eps/spark_agg_2node_th_max_2_ts}
+		\includegraphics[width=\textwidth]{eps/spark_system_latency_2}
+		
+		\caption{Event  vs system  time latency in Spark }
+	\end{subfigure}
+	~ 
+	\begin{subfigure}[b]{0.3\textwidth}
+		\includegraphics[width=\textwidth]{eps/flink_agg_2node_th_max_2_ts}
+		\includegraphics[width=\textwidth]{eps/flink_system_latency_1}
+		
+		\caption{Event vs system time latency in Flink }
+	\end{subfigure}
+	
+	\caption{\textcolor{red}{Comparison between event and system time latency among systems}}
+	\label{event_vs_system_latency}
+\end{figure*}
+
+
+
+
+
+
+
+
+
+
+
+\textbf{More throughput  than a system can sustain.}
+\textcolor{red}{Providing maximum sustainable throughput to SDPSs is essential as otherwise the performance of the systems can degrade. We experienced on average 5-10 \% performance decrease on 20\% more throughput than the system can sustain. We did experiments with Query-1 and Query-2 with window length between 5-10 second, and window slide between 1-5 seconds. We experienced that as the window size gets large and window slide and buffer size gets smaller, Storm's probability to drop the sockets increases. In general the decrease in overall throughput is dominated by the time interval where the system is unstable, meaning the system cannot fire the backpressure effectively. For example, we executed Query-1 with window length = 8 seconds and window slide = 4 seconds on 2 nodes. The overall throughput of the Storm, Spark and Flink decreased by 6\%, 5\%, 3\%  respectively. With the same parameters on Query-2, we examined approximately 1.5 times more performance decrease with 20\% more throughput. Moreover, if the data is skewed the performance loss can be in orders of magnitude (in Spark, Figure \ref{more_th}) or even system failure (in Flink).   }
+
+
+\begin{figure}
+	\centering
+	
+	\begin{subfigure}[b]{0.45\textwidth}
+		\includegraphics[width=\textwidth]{eps/storm_system_more_th_1}
+
+		
+		\caption{System time latency }
+	\end{subfigure}
+	~ 
+	\begin{subfigure}[b]{0.45\textwidth}
+		\includegraphics[width=\textwidth]{eps/storm_system_more_th_2}
+		
+		\caption{Event time latency }
+	\end{subfigure}
+
+	
+	\caption{Event vs system latency with more workload than Spark can sustain}
+	\label{more_th}
+\end{figure}
+
+
+
+\textbf{Impact of window size to systems' performance.}
+\textcolor{red}{The window size and window slide has significant impact on system's performance with windowed operations. Here we talk about partitioned windowed operations as Spark is single winner in global windows in scale. One interesting fact we inspected is that with the increasing window size Spark's throughput decreases significantly given the same batch size. For example, with window length and slide 60 seconds, Spark's throughput decreases by 2 times and avg latency increases by 10 times given the batch size 4 seconds. However, with higher batch sizes, Spark can handle much higher workloads and big windows. Storm on the other hand, can handle the big window sized operations if the user has advanced data structures that can spill to disk when needed. Otherwise, we encountered memory exceptions. Flink (as well as Spark) has built-in data structures that can spill to disk when needed. However, this do not apply for the operations inside the UDFs, as Flink treats UDFs as blackbox. }
+
+
+\begin{figure}
+	\centering
+	\begin{subfigure}[b]{0.5\textwidth}
+		\includegraphics[width=\textwidth]{eps/spark_skewed_join_1}
+		
+		\caption{Event time latency (79175.5)}
+		\label{fig_spark_join_2node_th_max_ts}
+	\end{subfigure}%
+	\begin{subfigure}[b]{0.5\textwidth}
+		\includegraphics[width=\textwidth]{eps/spark_skewed_join_2}
+		
+		\caption{System latency (77181.6) }
+		\label{fig_spark_join_4node_th_max_ts}
+	\end{subfigure}%
+	\caption{Event vs system latency with skewed data}
+	\label{skew}
+\end{figure}
+
+\textbf{Impact of data skew to systems' performance.}
+\textcolor{red}{Data skew is another factor affecting the system performance. Especially in industrial scenarios one should not expect purely equal data distribution. We tested the systems with extreme skew, which is with single key. Here, we treat Flink's global windowed performance equivalently for skewed data with one key. The reason is that, Flink internally uses static dummy key to partition global windows. The similar approach is used in Storm as well. Spark on the other hand, can handle skewed data efficiently. We experienced Spark outperforming both engines with Query-1 (8sec, 4sec) in a cluster with 4 nodes or more. For skewed joins on the other hand, both Spark and Flink stugle to handle. Flink often got stuck and stayed unresponsive in this case. Spark on the other hand, performed with very high latencies. We decreased the join operator's selectivity to make sure that data transfer is not a bottleneck. The main reason is that the memory is consumed quite fast and backpressure mechanism lacks to perform efficiently. As can be seen from Figure \ref{skew}, although very high latency the system, Spark in this case, ingests the input continuously. }
+
+
+
+\begin{figure*}
+	\centering
+	
+	\begin{subfigure}[b]{0.3\textwidth}
+		\includegraphics[width=\textwidth]{eps/storm_pull_pg}
+		
+		
+		\caption{Storm }
+	\end{subfigure}
+	~ 
+	\begin{subfigure}[b]{0.3\textwidth}
+		\includegraphics[width=\textwidth]{eps/spark_pull_pg}
+		
+		
+		\caption{ Spark }
+	\end{subfigure}
+	~ 
+	\begin{subfigure}[b]{0.3\textwidth}
+		\includegraphics[width=\textwidth]{eps/flink_pull_pg}
+		
+		
+		\caption{ Flink }
+	\end{subfigure}
+	
+	\caption{\textcolor{red}{Data pull graphs of systems}}
+	\label{pull_graph}
+\end{figure*}
+
+
+
+
+\textbf{Data pulling from data source.}
+\textcolor{red}{While analyzing the systems' performance it is essential to inspect their data pull graphs from data sources. We retrieved this metrics from driver side to ensure that we are not affecting the system performance. Figure \ref{pull_graph} shows the corresponding behavior of systems with maximum sustainable throughout on Query-1 (8sec, 4sec). However we examined the similar behavior in other window settings and windowed operations as long as the workload is maximum sustainable.  As we can see, Spark and Storm have fluctuating data pull rates. Despite having high data pull rate, Flink have less fluctuations. Once we lower the workload both Flink and Spark gets to monotonic data pull rate; however, Storm still exibits significant fluctuations. }
+
+
+
+\begin{figure*}
+	\centering
+	
+	\begin{subfigure}[b]{0.3\textwidth}
+		\includegraphics[width=\textwidth]{eps/storm_peak_agg_1}
+		
+		
+		\caption{Storm aggregation }
+	\end{subfigure}
+	~ 
+	\begin{subfigure}[b]{0.3\textwidth}
+		\includegraphics[width=\textwidth]{eps/spark_peak_agg_1}
+		
+		
+		\caption{ Spark aggregation }
+	\end{subfigure}
+	~ 
+	\begin{subfigure}[b]{0.3\textwidth}
+		\includegraphics[width=\textwidth]{eps/flink_peak_agg_1}
+		
+		
+		\caption{ Flink aggregation}
+	\end{subfigure}
+	~ 
+	\begin{subfigure}[b]{0.3\textwidth}
+		
+		\includegraphics[width=\textwidth]{eps/spark_peak_join_2}
+
+		\caption{Spark system time latency }
+		\label{peaks_system_time}
+	\end{subfigure}
+	~ 
+	\begin{subfigure}[b]{0.3\textwidth}
+		
+		\includegraphics[width=\textwidth]{eps/spark_peak_join_1}
+
+		\caption{ Spark join}
+		\label{peaks_spark_join}
+	\end{subfigure}
+	~ 
+	\begin{subfigure}[b]{0.3\textwidth}
+		
+		\includegraphics[width=\textwidth]{eps/flink_peak_join_1}
+		
+		\caption{ Flink join }
+	\end{subfigure}
+	\caption{\textcolor{red}{Peaks}}
+	\label{peaks}
+\end{figure*}
+
+
+\textbf{Peaks.}
+\textcolor{red}{Especially in industrial scenario, peaks are inevitable. We simulated the peaks for all systems both for Query-1(8 sec, 4 sec) and Query-2 (8sec, 4sec). We start the benchmark with 840K per second workload then decrease it to 280K and increase again after a while.   As can be seen from Figure \ref{peaks}, Storm is the most susceptible system for peaks. Spark and Flink have comparative behavour with partitioned windowed aggregations case. However, for partitioned windowed join case, Flink can handle peaks better. To emphasize the event and system time latency again, we show the system time latency of Figure \ref{peaks_spark_join} in Figure \ref{peaks_system_time}.  }
+
+\textbf{Another scenarios}
+\textcolor{red}{To test the systems' behavour deeply, we conducted more complex scenario with Query-3. The main purpose is to inspect engines' query optimization with non-trivial queries. Examining the logical and physical query graph, we inspect that Flink and Spark perform query optimization techniques to increase the performance of system. Therefore, the performance of systems stay approximately with the same proportion, with a more complex query. The same can be said about lower workloads. We tested systems with lower workloads than they can sustain. One interesting behaviour was that  Flink's avg latency increase with the smaller workloads. So we had to tune the buffer size for each workload to lower the latency; however, in real industrial scenario this is not the case. In Spark however, the avg latency improved with decreasing workloads. However, it can be further improved with smaller batch size. For this, again we have to stop the job and tune the system for each workload, which is unrealistic in real industrial scenarios. 
+Number of keys}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\textbf{Windowed Joins}
 In the second use-case, we use partitioned windowed joins in Spark and Flink.
   Storm provides a windowing capability but there is no built-in windowed join operator. Initially, we tried Storm's Trident abstrac\-tion, which has built-in windowed join features. However, Trident computed incorrect results as we increased the batch size. Moreover, there is a lack of support for Trident in the Storm community. As an alternative, we implemented a simple version of a windowed join in Storm. However, comparing it with Spark and Flink, which have advanced memory and state management features, leads to unfair comparisons. We implemented a na\"ive join in Storm and examined the maximum sustainable throughput to be 140K events per second and measured an average latency of 2349 milliseconds  on a 2-node cluster. However, we faced memory issues and topology stalls on larger clusters. 
 %Moreover, this  would be highly implementation dependent. 
@@ -501,87 +587,7 @@ in all cases Flink outperforms Spark in all parameters. To ensure the stability 
 
 
 
-\begin{figure*}
-    \centering
-   \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/spark_join_2node_th_max_hist}
 
-       \caption{Spark, 2-node, max  throughput}
-                       \label{fig_spark_join_2node_max}
-   \end{subfigure}%
-   \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/spark_join_4node_th_max_hist}
-
-       \caption{Spark, 4-node, max  throughput }
-                       \label{fig_spark_join_4node_max}
-   \end{subfigure}%
-   \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/spark_join_8node_th_max_hist}
-
-       \caption{Spark, 8-node, max  throughput }
-                       \label{fig_spark_join_8node_max}
-   \end{subfigure}
-
-
-
-
-   \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/flink_join_2node_th_max_hist}
-
-       \caption{Flink, 2-node, max  throughput}
-   \end{subfigure}%
-   \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/flink_join_4node_th_max_hist}
-
-       \caption{Flink, 4-node, max  throughput }
-   \end{subfigure}%
-   \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/flink_join_8node_th_max_hist}
-
-       \caption{Flink, 8-node, max  throughput }
-   \end{subfigure}
-   
-   
-   
-   
-      \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/spark_join_2node_th_90_hist}
-
-       \caption{Spark, 2-node,  90\%-throughput}
-   \end{subfigure}%
-   \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/spark_join_4node_th_90_hist}
-
-       \caption{Spark, 4-node,  90\%-throughput }
-   \end{subfigure}%
-   \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/spark_join_8node_th_90_hist}
-
-       \caption{Spark, 8-node,  90\%-throughput }
-   \end{subfigure}
-
-
-
-
-   \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/flink_join_2node_th_90_hist}
-
-       \caption{Flink, 2-node,  90\%-throughput}
-   \end{subfigure}%
-   \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/flink_join_4node_th_90_hist}
-
-       \caption{Flink, 4-node,  90\%-throughput }
-   \end{subfigure}%
-   \begin{subfigure}[b]{0.3\textwidth}
-       \includegraphics[width=\textwidth]{eps/flink_join_8node_th_90_hist}
-
-       \caption{Flink, 8-node,  90\%-throughput }
-   \end{subfigure}
-
-        \caption{Windowed join latency distributions in histogram.}
-                \label{fig_hist_join}
-\end{figure*}
 
 
 

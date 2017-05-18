@@ -27,12 +27,9 @@ There are several challenges to be addressed when designing a benchmarking frame
 
 
 
-\para{ \textit{Simplicity is key}}. The first challenge is to design a simple benchmarking framework as complex benchmarking frameworks can  cause  additional overheads. \todo[inline]{The number of components is not the only factor determining system complexity. Generally, I would prfer an argument on efficiency or low overhead than simplicity.=> deleted ambiguous part of sentence} \todo[inline]{AK: I really do not buy this argument of simplicity. Plus, "can cause additional overheads" without concrete reasons why, is very weak here.}
-
-For example, the connection between the data generator and the SUT can cause large additional overheads when benchmarking.  To test the stream data processing engine, a data generator component is essential, to provide large amounts of streaming data. Figure \ref{fig_queue_link} shows  three possible cases to link the data generator and the SUT. The simplest design is to connect the SDPS directly to the data generators as shown in Figure \ref{fig_no_queue}. Although this is a perfectly acceptable design, it does not match real-life use-cases. In large-scale setups, stream data processing engines do not connect to push-based data sources but pull data from distributed message queues. A pull based design, where data sources and SUT are connected through queues, is in Figure \ref{fig_yes_queue}. A common bottleneck of this option is the throughput of the message queuing system. Also, this adds  a de-/serialization layer between the SUT and the data sources. Therefore, we use a third option, which is a hybrid of the first two. As can be seen in Figure \ref{fig_partial_queue}, we embed the queues as a separate module in the data generators. This way, the throughput is bounded only by the network bandwidth and the systems work more efficiently as there are no de-/serialization overheads.%\todo[inline]{not as simple as no queue...=>deleted sentence}
 
 
-\para{ \textit{Separate driver and tested system}}. The second challenge is to isolate the  driver from the SUT as much as possible. In previous works, researchers measured the throughput  either  inside the SUT, or used internal statistics of the SUT. % or just do not mention about the measurement details. 
+\para{ \textit{Separate driver and tested system}}. The first challenge is to isolate the  driver from the SUT as much as possible. In previous works, researchers measured the throughput  either  inside the SUT, or used internal statistics of the SUT. % or just do not mention about the measurement details. 
 However, if the measurements and SUT are not separated, then the measurement computations can influence the results of benchmark.
 In our benchmarking framework, we separate the driver and SUT for each measurement metric and perform measurements separately from the SUT. 
 %\todo[inline]{I don't know what you want to say in this sentence. why would you associate the KPI/metric with a unit under test and what does that mean?-> I explained it in following sentences.}
@@ -43,9 +40,20 @@ If the system can ingest and process all the data produced by the driver instanc
 
 \todo[inline]{AK: Please explain the throughot concept better or refer to where in the paper this is explained.}
 
-  
+
 The second evaluation is latency. We define the latency of a tuple to be the interval between tuple's event time and emission time from SUT's sink operator. We develop a model to calculate the latency of stateful operator  which we analyze in Section \ref{sec_latency}.
 %\todo[inline]{I like the concept of isolating the driver, however, separating would be a better term. But the description of this separation is completely unclear. Also, if it is required to separate, you should explain why and how we did it. You have some of the why but none of the how=>fixed}
+
+\textcolor{red}{ Many systems continuously collect metrics inside the SUT while the application is running. Then, the question arise whether we need the driver to be separated from SUT. Firstly, once we accept metric measurement inside the SUT, benchmarking different systems becomes a challange especially if the semantics of metric measurements are different among systems or even the semantics is unknown if the system is blackbox. Secondly, the measuring metrics, latency and throughput in our case, inside the system and performing so with clear separation from system gives completely different results, as we can see in Section \ref{eval}.  }
+
+
+\para{ \textit{Simplicity is key}}. The second challenge is to design a simple benchmarking framework as complex benchmarking frameworks can  cause  additional overheads. \todo[inline]{The number of components is not the only factor determining system complexity. Generally, I would prfer an argument on efficiency or low overhead than simplicity.=> deleted ambiguous part of sentence} \todo[inline]{AK: I really do not buy this argument of simplicity. Plus, "can cause additional overheads" without concrete reasons why, is very weak here.}
+
+For example, the connection between the data generator and the SUT can cause large additional overheads when benchmarking.  To test the stream data processing engine, a data generator component is essential, to provide large amounts of streaming data. Figure \ref{fig_queue_link} shows  three possible cases to link the data generator and the SUT. The simplest design is to connect the SDPS directly to the data generators as shown in Figure \ref{fig_no_queue}. Although this is a perfectly acceptable design, it does not match real-life use-cases. In large-scale setups, stream data processing engines do not connect to push-based data sources but pull data from distributed message queues. A pull based design, where data sources and SUT are connected through queues, is in Figure \ref{fig_yes_queue}. A common bottleneck of this option is the throughput of the message queuing system. Also, this adds  a de-/serialization layer between the SUT and the data sources. Therefore, we use a third option, which is a hybrid of the first two. As can be seen in Figure \ref{fig_partial_queue}, we embed the queues as a separate module in the data generators. This way, the throughput is bounded only by the network bandwidth and the systems work more efficiently as there are no de-/serialization overheads.%\todo[inline]{not as simple as no queue...=>deleted sentence}
+
+\textcolor{red}{The pull and push based data ingestion approaches  perform theoretically the same with sustainable workloads. However, there are two issues to consider from practical perspective. Firstly, as we mentioned above, pull based approach is the one used in industrial setup. No matter how high the workload a system can sustain, it always has an upper limit. As a result, using push based approaches leaves the user with no guarantee for possible high workloads. Secondly, it is not trivial to find the maximum sustainable workload for a particular system with push based data ingestion approach. As a result, if the data ingestion rate is above the maximum sustainable workload the engine may fail to perform the experiments. If we are lucky, we can detect this type of exception within benchmarking time interval. However, ideally this case  requires infinite-length experiments. }
+
+
 
 \para{ \textit{Unreal latency and throughout}}.
 The third challenge is to measure the metrics with close to real-life scenarios. %\todo[inline]{This is repetitive, you need to mention real world only once in this paragraph=>fixed} 
@@ -71,6 +79,9 @@ Initially the system will try to ingest as much data as possible. As a result, t
 \para{ \textit{Latency of stateful operators}} The final challenge is measuring the latency of stateful operators. Up to this point, the related work either concentrated on stateless operators or evaluated the latency of stateful operators by checkpointing to external systems. As we discussed above, this approach can be a bottleneck and will influence the measurements. In our benchmarking framework, we propose a solution to this problem.  
 We aggregate tuples by selecting their maximum timestamp and append the resulting timestamp to the emitted tuple from stateful operator. 
  In this way, we measure the latency of stateful computation time, excluding the tuples' waiting time (in window) in stateful operator. 
+
+
+
 
 %\todo[inline]{Did we remove the formal definition, then this should be updated=>fixed}
 

@@ -1,0 +1,47 @@
+\section{New }
+
+
+\subsection{Insert data to SUT more than it can sustain}
+
+We increased the throughput by 20\%.
+\begin{itemize}
+	\item Spark aggregation 2 node from 379K to 360
+	\item Spark join 2 node 365K to 330
+	\item Flink 2 node from 851 to 820
+	\item Storm , sometimes drop connection.  408 -> 380
+	\end{itemize}
+
+
+\subsection{Skewed data}
+As the data gets skewed spark closes the performance gap between flink. As slide decrease and lenght increase spark performs better than flink with skewed data. In our case, ?? spark got better. 
+
+\begin{itemize}
+	\item Spark aggregation skewed  4 node from  to 592
+	\item Flink aggregation skewed  4 node from  to 640
+	\item Storm aggregation skewed  8 node from  to ??
+	
+	\item Spark aggregation skewed  8 node from  to 768
+	\item Flink aggregation skewed  8 node from  to 880
+	\item Storm aggregation skewed  8 node from  to ??
+	
+	\item Spark aggregation skewed  16 node from  to ??
+	\item Flink aggregation skewed  16 node from  to ??
+	\item Storm aggregation skewed  16 node from  to ??
+
+\end{itemize}
+
+
+For joins, flink gets stuck. Spark however handles skewed join but with extreme latency. 
+
+
+
+Figure \ref{new1} we can see bad backpressure for both flink and spark. 
+
+
+
+
+
+
+
+
+

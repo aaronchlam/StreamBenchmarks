@@ -74,16 +74,57 @@ As we defined above, we use the maximum sustainable throughput to measure system
 %\todo[inline]{Is this figure ever referenced in the text?=>yes}
 
 
+\begin{lstlisting}[
+language=SQL,
+showspaces=false,
+basicstyle=\ttfamily,
+numbers=left,
+numberstyle=\tiny,
+commentstyle=\color{gray}
+label={lst:label},
+caption={Queries},
+captionpos=b
+]
+S_1 = UNION  {s_1, s_2, ..., s_m}
+S_2 = UNION {s_m, s_m+1, ..., s_n}
+S_3 = UNION  {s_1, s_2, ..., s_n}
 
+Query_1 = SELECT AVG(S_1.price)
+FROM S_1 on window(l, s) 
+GROUPBY S_1.geo
+
+Query_2 = SELECT MAX(S_2.price, S_3.price)
+FROM S_2, S_3 on window(l, s) , 
+WHERE S_2.geo = S3.geo and S_2.ts = S3.ts
+
+Query_3 = 
+1.UPDATE S_1, S2: enrich with a new field = 
+   cnt,  the country name of geo location
+2.SELECT AVG(R.price)
+  FROM  
+   (SELECT MAX(S_2.price, S_3.price)
+    FROM S_2, S_3 on window(l, s), 
+    WHERE S_2.cnt = S3.cnt and S_2.ts = S3.ts)  
+    as R on window(l, s)  
+  GROUPBY R.geo
+  WHERE R.price > 100
+
+
+
+
+\end{lstlisting}
 
 %The semantics behind the evaluation of a sustainable workload with a given throughput must be clear. Moreover, it should support the system specific behaviors like backpressure. 
 Our system supports user-defined policies to test the sustainability. For example, one policy tolerates the $q^{b}$ part of the queue for a given time period (time based policy). Another policy tolerates   the $q^{b}$ part of the queue for a given number of pushes into the queue (count based policy).% \todo[inline]{not sure what this means=>fixed}
 This policy is customizable and can be easily plugged into the driver. %\todo[inline]{DEC?=>fixed}  
 
+
+
 We choose a policy that is a combination of time and count based policies. Once the queue size exceeds the $q^{a}$ and is less than $q^{b}$, we wait until $\frac{q^{b} - q^{a}}{2}  $ elements are pushed into the queue and check again. If the queue size is still bigger than $c^{a}$ we end the benchmark concluding the SUT cannot sustain the given throughput. %If the queue size is within $c^{a}$ and $c^{b}$, we do not tolerate it anymore. 
 This process is done continuously in all DIs %\todo[inline]{DEI?=>fixed} 
 and if the SUT fails to sustain one instance of the driver, then the experiments are halted meaning the SUT cannot sustain the given throughput. That is, the SUT can sustain a given workload if it can sustain the throughput of all DIs.%\todo[inline]{DEI?=>fixed}  
 
+\textcolor{red}{ It is crucial that separation of driver and SUT and handling backpressure in the driver side does not cause side effects in metric measurements. To emplasize again, the driver does not stop the benchmark when the system exhibits backpressure. Firstly, accurate selection of $q^{a}$, $q^{b}$ and $q^{n}$ is crucial. In our experiments, first we assign 5\%, 15\% and 30\% of input size for variables $q^{a}$, $q^{b}$ and $q^{n}$ respectively. In this case, the system can "handle" the given input; however, with longer experiments it fails, as the size of the queue keeps increasing. Moreover, we get very big latencies for the given input. As a result, we keep decreasing the variables until we find the best thresholds for all systems.    Secondly, it is crucial for the driver to distinguish unsustainable throughput and backpressure. As we discussed in above paragraph, the driver can successfully handle this issue. If the queue size gets beyond $q^{a}$ and less than $q^{b}$, the driver starts to inspect the queue for the next $\frac{q^{b} - q^{a}}{2}  $ tuples. If the queue size keeps increasing, for every such tuple, then we conclude that this is not a backpressure. In fact in experiments, we show that our driver can successfully handle the backpressure.}
 
 
 
@@ -98,6 +139,9 @@ and if the SUT fails to sustain one instance of the driver, then the experiments
 %The first point is the aggregation or join of tuples with timestamp fields. 
 While the use-case provides the semantics for aggregating or joining tuples, the semantics for measuring the latency of stateful operators is unclear.  We provide efficient solution for this problem in our benchmarking framework. When the tuples arrive to a stateful operator, it does the aggregation that is defined in the use-case. Besides the aggregation  defined in the use-case,  we aggregate the timestamp fields of tuples within stateful operator. That is, the timestamp of stateful operator's output tuple is the maximum timestamp of all tuples inside the operator.  The main intuition is that we exclude the tuples' waiting time in the window by taking the timestamp of the latest arrived tuple in each window. When a record is emitted from the sink operator of the SUT, we calculate the latency of a tuple by subtracting its timestamp from the current time.
 
+
+
+\textcolor{red}{ We are aware of the fact that new definition of latency can be applied when the data is pushed to the system. }
 %\todo[inline]{You define many variables here, but do not really use them. Maybe an intuitive explanation would be better.=>fixed}
 
 
