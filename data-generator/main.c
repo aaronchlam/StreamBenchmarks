@@ -95,12 +95,13 @@ void *produce( void  )
 
     int queue_size ;
     for (unsigned long i = 0; i < benchmarkCount; ){
+	printf("DEBUG: i < benchmarkCount? %d\n", i <  benchmarkCount);
+	printf("DEBUG: i (%d) benchmarkCount (%d)\n", i, benchmarkCount);
         for(int k = 0; k < dataGeneratedAfterEachSleep && i < benchmarkCount; k++ ,i++){
-
+		printf("DEBUG: INNERLOOP i (%d)\n", i, benchmarkCount);
             buffer[i] = generateJsonString(i);
 
             if(i % logInterval == 0){
-                sem_getvalue(&sem, &queue_size);
 
                 unsigned long long sec  = get_current_time_with_ms()/1000;
                 if (producerLog[logIndex]->key != get_current_time_with_ms()/1000){
@@ -116,7 +117,8 @@ void *produce( void  )
                 }
                 printf("Producer info - Current record timestamp - %llu, Current record index - %lu, Throughput - %lu \n", producerLog[logIndex]->key, producerLog[logIndex]->value, producerLog[logIndex]->throughput );
             }
-            sem_post(&sem);
+            // sem_post(&sem);
+	// printf("DEBUG: just posted queue_size: %d\n", queue_size);
 
             if (spikeInterval !=0 && spikeMagnitute !=0 && i % spikeInterval == 0 ) {
                 if (isSpikeActive == 0) {
@@ -131,14 +133,12 @@ void *produce( void  )
             }
         }
 
-
         if(sleepTime != 0){
-            msleep(sleepTime );
+            msleep(sleepTime);
         }
     }
     logIndex++;
     producerLog[logIndex] = NULL;
-
 }
 
 
@@ -151,7 +151,6 @@ void *consume( void  )
         return (void*)1;
     }
     puts("Connection accepted");
-
 
     // sending tuples
     int logIndex = 0;
@@ -188,17 +187,7 @@ void *consume( void  )
     consumerLog[logIndex]=NULL;
 
 
-    printf("All data read by system \n");
-    msleep(1000 * 1000);
-
-    if(read_size == 0)
-    {
-        puts("Client disconnected");
-    }
-    else if(read_size == -1)
-    {
-        perror("recv failed");
-    }
+    printf("All data read by system\n");
 }
 
 void fireServerSocket(void){
@@ -268,7 +257,9 @@ void parse_arguments(int argc, char * argv[]) {
                 break;
             case 'p' : port = atoi(optarg);
                 break;
-            case 's' : sleepTime = atoi(optarg);
+            case 's' : 
+		       sleepTime = atoi(optarg);
+		       printf("sleepTime is %lu\n", sleepTime);
                 break;
             case 'g' : dataGeneratedAfterEachSleep = atoi(optarg);
                 break;
@@ -298,15 +289,24 @@ int main(int argc , char *argv[])
     pthread_t producer, consumer;
     int seed = 123;
     srand(seed);
-    sem_init(&sem, 0 , 0);
+    sem_init(&sem, 0 , -1);
+    int val;
+    sem_getvalue(&sem, &val);
+    printf("semaphore initiated %d\n", val);
     buffer = malloc (benchmarkCount * sizeof(*buffer));
     fireServerSocket();
     //initLogFiles();
     pthread_create( &producer, NULL, produce, NULL);
     pthread_create( &consumer, NULL, consume, NULL);
 
-    pthread_join( producer, NULL);
-    pthread_join( consumer, NULL);
+    int status;
+
+    status = pthread_join( consumer, NULL);
+    printf("consumer has joined: %d\n", status);
+
+    status = pthread_join( producer, NULL);
+    printf("producer has joined: %d\n", status);
+
     free(buffer);
     return 0;
     //Send ehe message back to client

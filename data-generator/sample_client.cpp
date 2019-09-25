@@ -51,6 +51,8 @@ int main() {
     if (connect(sock,(struct sockaddr *) &server,sizeof(struct sockaddr_in)) < 0)
         std::cerr << "ERROR connecting" << std::endl;
 
+    std::cout << "connected" << std::endl;
+
 
     int received_bytes = 0;
     while( received_bytes=recv(sock, buffer, 16, 0) > 0){
