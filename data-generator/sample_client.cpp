@@ -33,7 +33,7 @@ int deserialize_uint32(unsigned char *buffer, int index)
 int main() {
     int sock;
     struct sockaddr_in server;
-    unsigned char buffer[16];
+    unsigned char buffer[100];
 
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
@@ -55,10 +55,8 @@ int main() {
 
 
     int received_bytes = 0;
-    while( received_bytes=recv(sock, buffer, 16, 0) > 0){
-        std::cout << "key is " << deserialize_uint32(buffer, 0) << std::endl;
-        std::cout << "value is " << deserialize_uint32(buffer, 4) << std::endl;
-        std::cout << "ts is " << deserialize_uint64(buffer, 8) << std::endl;
+    while( received_bytes=recv(sock, buffer, 100, 0) > 0){
+	    printf("%s\n", buffer);
     }
 
     free(buffer);
