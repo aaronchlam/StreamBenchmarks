@@ -7,6 +7,7 @@
 #include <iostream>
 #include <sstream>
 #include <cstdint>
+#include <cerrno>
 
 
 int deserialize_uint32(unsigned char *buffer, int index)
@@ -49,7 +50,7 @@ int main() {
     server.sin_port = htons( 9291 );
 
     if (connect(sock,(struct sockaddr *) &server,sizeof(struct sockaddr_in)) < 0)
-        std::cerr << "ERROR connecting" << std::endl;
+        std::cerr << "ERROR connecting:" << strerror(errno)  << std::endl;
 
     std::cout << "connected" << std::endl;
 
@@ -59,7 +60,6 @@ int main() {
 	    printf("%s\n", buffer);
     }
 
-    free(buffer);
     close(sock);
     std::cout << "Finished" << std::endl;
     return 0;

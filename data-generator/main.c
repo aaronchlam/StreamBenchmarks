@@ -95,10 +95,7 @@ void *produce( void  )
 
     int queue_size ;
     for (unsigned long i = 0; i < benchmarkCount; ){
-	printf("DEBUG: i < benchmarkCount? %d\n", i <  benchmarkCount);
-	printf("DEBUG: i (%d) benchmarkCount (%d)\n", i, benchmarkCount);
         for(int k = 0; k < dataGeneratedAfterEachSleep && i < benchmarkCount; k++ ,i++){
-		printf("DEBUG: INNERLOOP i (%d)\n", i, benchmarkCount);
             buffer[i] = generateJsonString(i);
 
             if(i % logInterval == 0){
@@ -117,8 +114,7 @@ void *produce( void  )
                 }
                 printf("Producer info - Current record timestamp - %llu, Current record index - %lu, Throughput - %lu \n", producerLog[logIndex]->key, producerLog[logIndex]->value, producerLog[logIndex]->throughput );
             }
-            // sem_post(&sem);
-	// printf("DEBUG: just posted queue_size: %d\n", queue_size);
+            sem_post(&sem);
 
             if (spikeInterval !=0 && spikeMagnitute !=0 && i % spikeInterval == 0 ) {
                 if (isSpikeActive == 0) {
