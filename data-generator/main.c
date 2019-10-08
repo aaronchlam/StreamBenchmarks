@@ -75,7 +75,10 @@ int msleep(unsigned long milisec)
 
 char* generateJsonString( unsigned long currentIndex){
     char * newJson = malloc(100);
-    sprintf(newJson,"{\"key\":\"%s\",\"value\":\"%d\",\"ts\":\"%llu\"}\n \0", geoListAll[geoIndex] , rand() % maxPrice,get_current_time_with_ms());
+    sprintf(newJson,"{\"key\":\"%s\",\"value\":\"%d\",\"ts\":\"%llu\"}\n", 
+		    geoListAll[geoIndex] , 
+		    rand() % maxPrice,
+		    get_current_time_with_ms());
 
     geoIndex++;
     geoIndex = geoIndex % allSize;
@@ -160,7 +163,7 @@ void *consume( void  )
 
     for (unsigned long i = 0; i < benchmarkCount; i ++){
         sem_wait(&sem);
-        write(client_sock , buffer[i] , 100);
+        write(client_sock , buffer[i] , strlen(buffer[i]) + 1);
         if(i % logInterval == 0){
 
             unsigned long long sec  = get_current_time_with_ms()/1000;
